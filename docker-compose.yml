@@ -1,0 +1,61 @@
+name: vellor-care
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: vellor-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: vellor_care
+      POSTGRES_USER: vellor
+      POSTGRES_PASSWORD: vellor
+      # Locale pt-BR para ordenação correta de acentos
+      LANG: pt_BR.utf8
+    ports:
+      - '5432:5432'
+    volumes:
+      - vellor-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U vellor -d vellor_care']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: vellor-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/vellor_care
+      DB_USER: vellor
+      DB_PASSWORD: vellor
+      VELLOR_JWT_SECRET: troque-este-segredo-em-producao-vellor-care-2026-hs256-key
+      VELLOR_CORS_ORIGINS: http://localhost:3000
+      VELLOR_STORAGE_ROOT: /app/storage
+    ports:
+      - '8080:8080'
+    volumes:
+      - vellor-storage:/app/storage
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: vellor-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8080/api/v1
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+    ports:
+      - '3000:3000'
+
+volumes:
+  vellor-pgdata:
+  vellor-storage:

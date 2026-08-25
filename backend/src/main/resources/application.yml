@@ -1,0 +1,120 @@
+spring:
+  application:
+    name: vellor-care-api
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/vellor_care}
+    username: ${DB_USER:vellor}
+    password: ${DB_PASSWORD:vellor}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: vellor-pool
+      maximum-pool-size: 12
+      minimum-idle: 2
+      connection-timeout: 20000
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      # O schema é 100% controlado pelo Flyway. Nunca deixe o Hibernate criar tabelas.
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
+        format_sql: false
+    show-sql: false
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+    validate-on-migrate: true
+
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+
+  servlet:
+    multipart:
+      max-file-size: 8MB
+      max-request-size: 32MB
+
+server:
+  port: ${SERVER_PORT:8080}
+  compression:
+    enabled: true
+    mime-types: application/json,text/csv,application/pdf
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: never
+
+vellor:
+  security:
+    jwt:
+      # Em produção defina VELLOR_JWT_SECRET (mínimo 32 bytes / 256 bits, Base64 ou texto puro).
+      secret: ${VELLOR_JWT_SECRET:troque-este-segredo-em-producao-vellor-care-2026-hs256-key}
+      issuer: vellor-care
+      access-token-minutes: ${VELLOR_JWT_ACCESS_MINUTES:120}
+      refresh-token-days: ${VELLOR_JWT_REFRESH_DAYS:14}
+    cors:
+      allowed-origins: ${VELLOR_CORS_ORIGINS:http://localhost:3000,http://127.0.0.1:3000}
+    # Preparado para integração futura com Active Directory / LDAP.
+    active-directory:
+      enabled: ${VELLOR_AD_ENABLED:false}
+      domain: ${VELLOR_AD_DOMAIN:}
+      url: ${VELLOR_AD_URL:}
+      search-base: ${VELLOR_AD_SEARCH_BASE:}
+
+  maintenance:
+    default-interval-days: 90
+    warning-days: 7
+    no-maintenance-alert-days: 120
+
+  health-thresholds:
+    critical-temp-celsius: 85
+    critical-ssd-health-percent: 20
+    low-disk-free-percent: 15
+
+  storage:
+    # Diretório onde fotos de manutenção e fotos de equipamento são gravadas.
+    root: ${VELLOR_STORAGE_ROOT:./storage}
+    public-base-url: ${VELLOR_STORAGE_URL:http://localhost:8080/files}
+
+  scheduler:
+    # Varredura que gera notificações automáticas. Cron: todo dia às 06:00.
+    alerts-cron: ${VELLOR_ALERTS_CRON:0 0 6 * * *}
+    enabled: ${VELLOR_SCHEDULER_ENABLED:true}
+
+  agent:
+    # Chave usada pelo futuro agente Windows para postar telemetria em /api/v1/agent/telemetry.
+    ingest-api-key: ${VELLOR_AGENT_KEY:vellor-agent-dev-key}
+    enabled: ${VELLOR_AGENT_ENABLED:true}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: alpha
+    tags-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    root: INFO
+    com.vellor.care: ${VELLOR_LOG_LEVEL:INFO}
+    org.hibernate.SQL: WARN
