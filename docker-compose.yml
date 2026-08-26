@@ -34,7 +34,9 @@ services:
       DB_URL: jdbc:postgresql://db:5432/vellor_care
       DB_USER: vellor
       DB_PASSWORD: vellor
-      VELLOR_JWT_SECRET: troque-este-segredo-em-producao-vellor-care-2026-hs256-key
+      # Apenas para dev local via docker-compose. Nunca reutilize este valor em producao.
+      VELLOR_JWT_SECRET: dev-only-local-compose-secret-troque-antes-de-publicar-32b
+      VELLOR_AGENT_KEY: dev-only-local-compose-agent-key
       VELLOR_CORS_ORIGINS: http://localhost:3000
       VELLOR_STORAGE_ROOT: /app/storage
     ports:

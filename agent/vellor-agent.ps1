@@ -5,7 +5,8 @@
 
 param (
     [string]$ApiUrl = "https://vellor-care-production.up.railway.app/api/agent/telemetry",
-    [string]$ApiKey = "vellor-agent-secret-api-key-2026",
+    [Parameter(Mandatory = $true)]
+    [string]$ApiKey,
     [string]$AssetTag = ""
 )
 

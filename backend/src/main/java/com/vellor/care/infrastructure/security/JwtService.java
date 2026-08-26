@@ -19,9 +19,14 @@ public class JwtService {
     private final long expirationMs;
 
     public JwtService(
-        @Value("${vellor.jwt.secret:vellor-care-secret-key-super-secure-change-in-prod-1234567890}") String secret,
-        @Value("${vellor.jwt.expiration-minutes:480}") long expirationMinutes
+        @Value("${vellor.security.jwt.secret}") String secret,
+        @Value("${vellor.security.jwt.access-token-minutes:120}") long expirationMinutes
     ) {
+        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalStateException(
+                "vellor.security.jwt.secret (VELLOR_JWT_SECRET) precisa estar definido com no minimo 32 bytes."
+            );
+        }
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expirationMs = expirationMinutes * 60 * 1000;
     }

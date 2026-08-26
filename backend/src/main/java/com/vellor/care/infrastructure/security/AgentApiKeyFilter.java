@@ -12,12 +12,14 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Collections;
 
 @Component
 public class AgentApiKeyFilter extends OncePerRequestFilter {
 
-    @Value("${vellor.agent.api-key:vellor-agent-secret-api-key-2026}")
+    @Value("${vellor.agent.ingest-api-key}")
     private String configuredApiKey;
 
     @Override
@@ -30,7 +32,7 @@ public class AgentApiKeyFilter extends OncePerRequestFilter {
 
         if (path.startsWith("/api/v1/agent/") || path.startsWith("/api/agent/")) {
             String apiKeyHeader = request.getHeader("X-Agent-Api-Key");
-            if (apiKeyHeader != null && apiKeyHeader.equals(configuredApiKey)) {
+            if (apiKeyHeader != null && constantTimeEquals(apiKeyHeader, configuredApiKey)) {
                 var auth = new UsernamePasswordAuthenticationToken(
                     "WINDOWS_AGENT",
                     null,
@@ -41,5 +43,12 @@ public class AgentApiKeyFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private boolean constantTimeEquals(String a, String b) {
+        return MessageDigest.isEqual(
+            a.getBytes(StandardCharsets.UTF_8),
+            b.getBytes(StandardCharsets.UTF_8)
+        );
     }
 }

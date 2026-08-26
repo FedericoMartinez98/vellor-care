@@ -57,8 +57,8 @@ server:
 vellor:
   security:
     jwt:
-      # Em produção defina VELLOR_JWT_SECRET (mínimo 32 bytes / 256 bits, Base64 ou texto puro).
-      secret: ${VELLOR_JWT_SECRET:troque-este-segredo-em-producao-vellor-care-2026-hs256-key}
+      # Obrigatorio: defina VELLOR_JWT_SECRET (minimo 32 bytes / 256 bits). Sem fallback -- a aplicacao nao sobe sem isso.
+      secret: ${VELLOR_JWT_SECRET}
       issuer: vellor-care
       access-token-minutes: ${VELLOR_JWT_ACCESS_MINUTES:120}
       refresh-token-days: ${VELLOR_JWT_REFRESH_DAYS:14}
@@ -92,8 +92,8 @@ vellor:
     enabled: ${VELLOR_SCHEDULER_ENABLED:true}
 
   agent:
-    # Chave usada pelo futuro agente Windows para postar telemetria em /api/v1/agent/telemetry.
-    ingest-api-key: ${VELLOR_AGENT_KEY:vellor-agent-dev-key}
+    # Obrigatorio: chave usada pelo agente Windows para postar telemetria em /api/v1/agent/telemetry. Sem fallback.
+    ingest-api-key: ${VELLOR_AGENT_KEY}
     enabled: ${VELLOR_AGENT_ENABLED:true}
 
 springdoc:

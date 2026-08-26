@@ -93,8 +93,13 @@ primeira subida, o `AdminUserInitializer` cria `admin@vellor.com.br` e, se
 VELLOR_ADMIN_EMAIL=ti@empresa.com.br VELLOR_ADMIN_PASSWORD='sua-senha-forte' mvn spring-boot:run
 ```
 
-Antes de expor em rede, troque também `VELLOR_JWT_SECRET` (mínimo 32 bytes) e
-`VELLOR_AGENT_KEY`.
+`VELLOR_JWT_SECRET` (mínimo 32 bytes) e `VELLOR_AGENT_KEY` são obrigatórias — a API
+não sobe sem elas, mesmo em dev local fora do `docker compose` (que já define valores de
+desenvolvimento em `docker-compose.yml`). Gere valores próprios antes de expor em rede:
+
+```bash
+VELLOR_JWT_SECRET=$(openssl rand -hex 32) VELLOR_AGENT_KEY=$(openssl rand -hex 24) mvn spring-boot:run
+```
 
 ### Tudo de uma vez
 

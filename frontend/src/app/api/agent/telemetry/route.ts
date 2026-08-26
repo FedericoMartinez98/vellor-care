@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-const AGENT_API_KEY = process.env.VELLOR_AGENT_KEY || 'vellor-agent-secret-api-key-2026'
+const AGENT_API_KEY = process.env.VELLOR_AGENT_KEY
 
 export async function POST(req: NextRequest) {
   try {
+    if (!AGENT_API_KEY) {
+      return NextResponse.json(
+        { error: 'Servidor mal configurado: VELLOR_AGENT_KEY nao definido.' },
+        { status: 500 }
+      )
+    }
+
     const apiKeyHeader = req.headers.get('X-Agent-Api-Key')
 
     // 1. Validação de Segurança Criptográfica da Chave
@@ -42,9 +49,10 @@ export async function POST(req: NextRequest) {
       },
       { status: 200 }
     )
-  } catch (error: any) {
+  } catch (error) {
+    console.error('[Vellor Telemetry] Erro ao processar telemetria', error)
     return NextResponse.json(
-      { error: 'Erro interno ao processar telemetria', details: error.message },
+      { error: 'Erro interno ao processar telemetria' },
       { status: 500 }
     )
   }
