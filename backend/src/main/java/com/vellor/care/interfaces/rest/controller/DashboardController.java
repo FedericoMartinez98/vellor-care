@@ -57,7 +57,7 @@ public class DashboardController {
 
         int globalCompliance = total > 0 ? (int) Math.round(((double) onSchedule / total) * 100) : 100;
         long lowStock = partRepository.findLowStock().size();
-        long unreadNotifs = notificationRepository.count();
+        long unreadNotifs = notificationRepository.findAll().size();
 
         List<GetSectorComplianceUseCase.SectorComplianceDTO> complianceList = getSectorComplianceUseCase.execute();
         List<DashboardMetricsResponse.SectorMetricDTO> sectorMetrics = complianceList.stream()
