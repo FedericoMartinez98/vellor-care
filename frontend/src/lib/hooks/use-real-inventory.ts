@@ -27,6 +27,12 @@ export interface RealInventoryState {
   ready: boolean
   computers: Computer[]
   sectors: Sector[]
+  /**
+   * Setores no shape cru da API (com `unitId`) — o tipo de tela `Sector` só
+   * guarda o *nome* da unidade, então quem precisa gravar `assignment.unitId`
+   * (criar/editar computador) resolve a partir daqui.
+   */
+  apiSectors: ApiSector[]
   error: string | null
   refresh: () => Promise<void>
   removeComputer: (id: string) => Promise<void>
@@ -36,6 +42,7 @@ export function useRealInventory(): RealInventoryState {
   const [ready, setReady] = React.useState(false)
   const [computers, setComputers] = React.useState<Computer[]>([])
   const [sectors, setSectors] = React.useState<Sector[]>([])
+  const [apiSectors, setApiSectors] = React.useState<ApiSector[]>([])
   const [error, setError] = React.useState<string | null>(null)
 
   const refresh = React.useCallback(async () => {
@@ -46,14 +53,15 @@ export function useRealInventory(): RealInventoryState {
 
     setError(null)
     try {
-      const [apiSectors, apiComputers] = await Promise.all([
+      const [fetchedSectors, apiComputers] = await Promise.all([
         apiFetch<ApiSector[]>(endpoints.sectors.list()),
         apiFetch<ApiComputer[]>(endpoints.computers.list()),
       ])
-      const mappedSectors = apiSectors.map(mapApiSector)
-      const unitNameBySectorId = new Map(apiSectors.map((s) => [s.id, s.unitName]))
+      const mappedSectors = fetchedSectors.map(mapApiSector)
+      const unitNameBySectorId = new Map(fetchedSectors.map((s) => [s.id, s.unitName]))
 
       setSectors(mappedSectors)
+      setApiSectors(fetchedSectors)
       setComputers(
         apiComputers.map((api) => {
           const computer = mapApiComputer(api)
@@ -82,5 +90,5 @@ export function useRealInventory(): RealInventoryState {
     setComputers((current) => current.filter((computer) => computer.id !== id))
   }, [])
 
-  return { ready, computers, sectors, error, refresh, removeComputer }
+  return { ready, computers, sectors, apiSectors, error, refresh, removeComputer }
 }

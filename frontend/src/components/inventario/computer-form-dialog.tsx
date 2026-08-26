@@ -38,10 +38,13 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { apiFetch, ApiError, endpoints, isRemoteBackend } from '@/lib/api'
+import { type ApiComputer, mapApiComputer, toComputerWriteRequest } from '@/lib/api/mappers'
 import {
   COMPUTER_STATUS_LABELS,
   STORAGE_TYPE_LABELS,
 } from '@/lib/constants'
+import { useRealInventory } from '@/lib/hooks/use-real-inventory'
 import { computerSchema, type ComputerInput } from '@/lib/schemas'
 import { useVellor } from '@/lib/store'
 import { COMPUTER_STATUS, STORAGE_TYPE, type Computer } from '@/lib/types'
@@ -61,8 +64,14 @@ export function ComputerFormDialog({
   computerToEdit,
   onSuccess,
 }: ComputerFormDialogProps) {
-  const { createComputer, updateComputer, sectors } = useVellor()
+  const mock = useVellor()
+  const real = useRealInventory()
+  const remote = isRemoteBackend()
+
+  const { createComputer, updateComputer } = mock
+  const sectors = remote ? real.sectors : mock.sectors
   const isEditing = Boolean(computerToEdit)
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
 
   const defaultValues: ComputerInput = React.useMemo(() => {
     if (computerToEdit) {
@@ -167,9 +176,45 @@ export function ComputerFormDialog({
     form.reset(defaultValues)
   }, [defaultValues, form])
 
-  function onSubmit(values: ComputerInput) {
+  const selectedSectorId = form.watch('assignment.sectorId')
+
+  // No backend real a unidade é derivada do setor (cada setor pertence a
+  // exatamente uma unidade) -- não é um campo livre como no modo mock.
+  React.useEffect(() => {
+    if (!remote) return
+    const sector = real.apiSectors.find((s) => s.id === selectedSectorId)
+    if (sector) form.setValue('assignment.unit', sector.unitName)
+  }, [remote, real.apiSectors, selectedSectorId, form])
+
+  async function onSubmit(values: ComputerInput) {
+    setIsSubmitting(true)
     try {
-      if (isEditing && computerToEdit) {
+      if (remote) {
+        const sector = real.apiSectors.find((s) => s.id === values.assignment.sectorId)
+        if (!sector) {
+          toast.error('Selecione um setor válido.')
+          return
+        }
+
+        const body = toComputerWriteRequest(values, sector.unitId)
+        const path =
+          isEditing && computerToEdit
+            ? endpoints.computers.update(computerToEdit.id)
+            : endpoints.computers.create()
+
+        const saved = await apiFetch<ApiComputer>(path, {
+          method: isEditing && computerToEdit ? 'PUT' : 'POST',
+          body: JSON.stringify(body),
+        })
+
+        toast.success(
+          isEditing
+            ? `Equipamento ${values.assetTag} atualizado com sucesso.`
+            : `Equipamento ${values.assetTag} cadastrado com sucesso.`,
+        )
+        await real.refresh()
+        onSuccess?.(mapApiComputer(saved))
+      } else if (isEditing && computerToEdit) {
         updateComputer(computerToEdit.id, values)
         toast.success(`Equipamento ${values.assetTag} atualizado com sucesso.`)
         onSuccess?.({ ...computerToEdit, ...values } as Computer)
@@ -180,7 +225,9 @@ export function ComputerFormDialog({
       }
       onOpenChange(false)
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Ocorreu um erro ao salvar o equipamento.')
+      toast.error(err instanceof ApiError ? err.message : 'Ocorreu um erro ao salvar o equipamento.')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -403,8 +450,18 @@ export function ComputerFormDialog({
                       <FormItem>
                         <FormLabel>Unidade *</FormLabel>
                         <FormControl>
-                          <Input placeholder="ex: Matriz, CD, Loja Centro" {...field} />
+                          <Input
+                            placeholder="ex: Matriz, CD, Loja Centro"
+                            readOnly={remote}
+                            className={remote ? 'bg-muted' : undefined}
+                            {...field}
+                          />
                         </FormControl>
+                        {remote ? (
+                          <p className="text-xs text-muted-foreground">
+                            Definida automaticamente pelo setor escolhido.
+                          </p>
+                        ) : null}
                         <FormMessage />
                       </FormItem>
                     )}
@@ -694,8 +751,12 @@ export function ComputerFormDialog({
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
-              <Button type="submit">
-                {isEditing ? 'Salvar Alterações' : 'Cadastrar Equipamento'}
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting
+                  ? 'Salvando...'
+                  : isEditing
+                    ? 'Salvar Alterações'
+                    : 'Cadastrar Equipamento'}
               </Button>
             </DialogFooter>
           </form>

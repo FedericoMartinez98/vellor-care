@@ -224,10 +224,6 @@ export function InventoryView() {
               <ComputerRowActions
                 computer={computer}
                 onEdit={(comp) => {
-                  if (remote) {
-                    toast.error('Edição manual ainda não está ligada ao backend real.')
-                    return
-                  }
                   setEditingComputer(comp)
                   setFormOpen(true)
                 }}
@@ -313,12 +309,6 @@ export function InventoryView() {
               <DropdownMenuContent align="end">
                 <DropdownMenuItem
                   onClick={() => {
-                    if (remote) {
-                      toast.error(
-                        'Cadastro manual ainda não está ligado ao backend real — use "Importar via CSV" por enquanto.',
-                      )
-                      return
-                    }
                     setEditingComputer(undefined)
                     setFormOpen(true)
                   }}
@@ -393,6 +383,12 @@ export function InventoryView() {
           }
         }}
         computerToEdit={editingComputer}
+        onSuccess={() => {
+          // useRealInventory() não é um store global -- cada componente tem
+          // sua própria cópia. O dialog já atualizou a dele; sem isto aqui,
+          // a lista desta tela ficaria com o dado antigo até um F5.
+          if (remote) void real.refresh()
+        }}
       />
     </div>
   )

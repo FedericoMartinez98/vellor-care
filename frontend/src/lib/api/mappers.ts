@@ -10,6 +10,7 @@
  * saber que o shape diverge.
  */
 
+import type { ComputerInput } from '@/lib/schemas'
 import type { Computer, Sector } from '@/lib/types'
 
 /** Shape mínimo que este módulo espera de `GET/POST /sectors`. */
@@ -86,6 +87,113 @@ export function mapApiSector(api: ApiSector): Sector {
     manager: api.manager ?? undefined,
     costCenter: api.costCenter ?? undefined,
     color: api.color,
+  }
+}
+
+/** `undefined`/string vazio → `undefined`, para não mandar `""` onde o backend espera `null`. */
+function blankToUndefined(value: string | undefined): string | undefined {
+  return value && value.trim().length > 0 ? value : undefined
+}
+
+/**
+ * Corpo aceito por `POST /computers` e `PUT /computers/{id}`
+ * (`ComputerCreateRequest`/`ComputerUpdateRequest` no backend).
+ */
+export interface ComputerWriteRequest {
+  assetTag: string
+  hostname: string
+  serialNumber: string
+  model: string
+  manufacturer: string
+  assignment: {
+    employeeName: string
+    employeeEmail: string
+    sectorId: string
+    unitId: string
+    location?: string
+  }
+  hardware: {
+    processor: string
+    ramGb: number
+    ramDetail?: string
+    storageType: string
+    storageGb: number
+    storageDetail?: string
+    gpu?: string
+    powerSupply?: string
+    motherboard?: string
+    acquisitionDate: string
+  }
+  system: {
+    windowsVersion: string
+    windowsBuild: string
+    officeVersion?: string
+    antivirus?: string
+    lastWindowsUpdate?: string
+    domainJoined: boolean
+  }
+  warranty: {
+    supplier?: string
+    invoiceNumber?: string
+    warrantyUntil?: string
+    purchaseValue?: number
+  }
+  status: Computer['status']
+  notes?: string
+  photoUrl?: string
+  maintenanceIntervalDays: number
+}
+
+/**
+ * Converte o formulário (`ComputerInput`, shape de tela) para o corpo que a
+ * API espera. `unitId` não existe no formulário (que só guarda o nome da
+ * unidade) — quem chama resolve a partir do setor escolhido, via
+ * `useRealInventory().apiSectors`.
+ */
+export function toComputerWriteRequest(values: ComputerInput, unitId: string): ComputerWriteRequest {
+  return {
+    assetTag: values.assetTag,
+    hostname: values.hostname,
+    serialNumber: values.serialNumber,
+    model: values.model,
+    manufacturer: values.manufacturer,
+    assignment: {
+      employeeName: values.assignment.employeeName,
+      employeeEmail: values.assignment.employeeEmail,
+      sectorId: values.assignment.sectorId,
+      unitId,
+      location: blankToUndefined(values.assignment.location),
+    },
+    hardware: {
+      processor: values.hardware.processor,
+      ramGb: values.hardware.ramGb,
+      ramDetail: blankToUndefined(values.hardware.ramDetail),
+      storageType: values.hardware.storageType,
+      storageGb: values.hardware.storageGb,
+      storageDetail: blankToUndefined(values.hardware.storageDetail),
+      gpu: blankToUndefined(values.hardware.gpu),
+      powerSupply: undefined,
+      motherboard: undefined,
+      acquisitionDate: values.hardware.acquisitionDate,
+    },
+    system: {
+      windowsVersion: values.system.windowsVersion,
+      windowsBuild: values.system.windowsBuild,
+      officeVersion: blankToUndefined(values.system.officeVersion),
+      antivirus: blankToUndefined(values.system.antivirus),
+      lastWindowsUpdate: blankToUndefined(values.system.lastWindowsUpdate),
+      domainJoined: values.system.domainJoined,
+    },
+    warranty: {
+      supplier: blankToUndefined(values.warranty.supplier),
+      invoiceNumber: blankToUndefined(values.warranty.invoiceNumber),
+      warrantyUntil: blankToUndefined(values.warranty.warrantyUntil),
+      purchaseValue: values.warranty.purchaseValue,
+    },
+    status: values.status,
+    notes: blankToUndefined(values.notes),
+    photoUrl: blankToUndefined(values.photoUrl),
+    maintenanceIntervalDays: values.maintenanceIntervalDays,
   }
 }
 
