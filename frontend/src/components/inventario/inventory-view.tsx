@@ -11,11 +11,13 @@ import type { ColumnDef } from '@tanstack/react-table'
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
   Download,
   Laptop,
   Monitor,
   MonitorSmartphone,
   Plus,
+  UploadCloud,
   Wrench,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -281,15 +283,30 @@ export function InventoryView() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button
-              onClick={() => {
-                setEditingComputer(undefined)
-                setFormOpen(true)
-              }}
-            >
-              <Plus className="mr-2 size-4" />
-              Novo Equipamento
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 size-4" />
+                  Novo Equipamento
+                  <ChevronDown className="ml-2 size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => {
+                    setEditingComputer(undefined)
+                    setFormOpen(true)
+                  }}
+                >
+                  <Plus className="mr-2 size-4" />
+                  Cadastro manual
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push('/importar-telemetria')}>
+                  <UploadCloud className="mr-2 size-4" />
+                  Importar via CSV
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         }
       />
