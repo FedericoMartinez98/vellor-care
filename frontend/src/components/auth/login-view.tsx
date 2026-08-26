@@ -25,25 +25,41 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { isRemoteBackend } from '@/lib/api'
+import { loginErrorMessage, useRealAuth } from '@/lib/hooks/use-real-auth'
 import { loginSchema, type LoginInput } from '@/lib/schemas'
 import { useVellor } from '@/lib/store'
 
 export function LoginView() {
   const router = useRouter()
   const { users, setCurrentUser } = useVellor()
+  const real = useRealAuth()
+  const remote = isRemoteBackend()
   const [loading, setLoading] = React.useState(false)
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: 'admin@vellor.com.br',
-      password: 'password123',
-      remember: true,
-    },
+    defaultValues: remote
+      ? { email: '', password: '', remember: true }
+      : { email: 'admin@vellor.com.br', password: 'password123', remember: true },
   })
 
-  function onSubmit(values: LoginInput) {
+  async function onSubmit(values: LoginInput) {
     setLoading(true)
+
+    if (remote) {
+      try {
+        const user = await real.login(values.email, values.password)
+        toast.success(`Bem-vindo, ${user.name}!`)
+        router.push('/')
+      } catch (err) {
+        toast.error(loginErrorMessage(err))
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
     setTimeout(() => {
       const match = users.find((u) => u.email.toLowerCase() === values.email.toLowerCase())
       if (match) {
@@ -158,35 +174,39 @@ export function LoginView() {
             </form>
           </Form>
 
-          {/* Atalhos Rápidos de Demonstração */}
-          <div className="mt-6 border-t border-border pt-4 text-center">
-            <p className="text-xs text-muted-foreground mb-3">
-              Ou acesse com um perfil de demonstração:
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => loginAs('ADMINISTRADOR')}
-              >
-                Administrador
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => loginAs('TECNICO')}
-              >
-                Técnico TI
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => loginAs('VISUALIZADOR')}
-              >
-                Visualizador
-              </Button>
+          {/* Atalhos Rápidos de Demonstração — só no modo mock. Com o
+              backend real conectado, isso seria uma forma de pular a
+              autenticação de verdade, então não faz sentido oferecer. */}
+          {!remote ? (
+            <div className="mt-6 border-t border-border pt-4 text-center">
+              <p className="text-xs text-muted-foreground mb-3">
+                Ou acesse com um perfil de demonstração:
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => loginAs('ADMINISTRADOR')}
+                >
+                  Administrador
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => loginAs('TECNICO')}
+                >
+                  Técnico TI
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => loginAs('VISUALIZADOR')}
+                >
+                  Visualizador
+                </Button>
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
 
         <p className="text-center text-xs text-muted-foreground">

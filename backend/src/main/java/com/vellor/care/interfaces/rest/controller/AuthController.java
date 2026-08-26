@@ -14,6 +14,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -71,13 +72,28 @@ public class AuthController {
         return ResponseEntity.ok(new AuthResponse(token, newRefreshToken, "Bearer", 28800L, userDTO));
     }
 
+    @PostMapping("/logout")
+    @Operation(summary = "Encerrar sessão", description = "Revoga todos os refresh tokens ativos do usuário autenticado.")
+    @Transactional
+    public ResponseEntity<Void> logout(@AuthenticationPrincipal String email) {
+        if (email != null) {
+            userRepository.findByEmail(email)
+                .ifPresent(user -> refreshTokenUseCase.revokeAllForUser(user.id()));
+        }
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/me")
     @Operation(summary = "Perfil do usuário logado", description = "Retorna os dados do usuário autenticado.")
-    public ResponseEntity<User> me(@AuthenticationPrincipal String email) {
+    @Transactional(readOnly = true)
+    public ResponseEntity<AuthResponse.UserDTO> me(@AuthenticationPrincipal String email) {
         if (email == null) {
             return ResponseEntity.status(401).build();
         }
         return userRepository.findByEmail(email)
+            .map(user -> new AuthResponse.UserDTO(
+                user.id(), user.name(), user.email(), user.role(), user.sectorId(), user.avatarUrl()
+            ))
             .map(ResponseEntity::ok)
             .orElse(ResponseEntity.notFound().build());
     }

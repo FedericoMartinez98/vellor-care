@@ -32,6 +32,22 @@ public class RefreshTokenUseCase {
     }
 
     @Transactional
+    public void revoke(String refreshToken) {
+        jpaRefreshTokenRepository.findByToken(refreshToken)
+            .ifPresent(entity -> {
+                entity.setRevoked(true);
+                jpaRefreshTokenRepository.save(entity);
+            });
+    }
+
+    /** Usado no logout: derruba todas as sessões ativas do usuário, não só a atual. */
+    @Transactional
+    public void revokeAllForUser(UUID userId) {
+        jpaRefreshTokenRepository.findByUserIdAndRevokedFalse(userId)
+            .forEach(entity -> entity.setRevoked(true));
+    }
+
+    @Transactional
     public String createRefreshToken(UUID userId, long durationSeconds) {
         String token = UUID.randomUUID().toString();
         RefreshTokenEntity entity = RefreshTokenEntity.builder()

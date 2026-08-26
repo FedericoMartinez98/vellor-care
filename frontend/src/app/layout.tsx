@@ -4,6 +4,7 @@ import { Inter, JetBrains_Mono } from 'next/font/google'
 
 import { ThemeProvider } from '@/components/layout/theme-provider'
 import { Toaster } from '@/components/ui/sonner'
+import { RealAuthProvider } from '@/lib/hooks/use-real-auth'
 import { DataProvider } from '@/lib/store'
 
 import './globals.css'
@@ -40,10 +41,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="pt-BR" suppressHydrationWarning className={`${sans.variable} ${mono.variable}`}>
       <body>
         <ThemeProvider>
-          <DataProvider>
-            {children}
-            <Toaster />
-          </DataProvider>
+          <RealAuthProvider>
+            <DataProvider>
+              {children}
+              <Toaster />
+            </DataProvider>
+          </RealAuthProvider>
         </ThemeProvider>
       </body>
     </html>
