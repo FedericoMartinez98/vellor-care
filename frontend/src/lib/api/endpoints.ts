@@ -67,6 +67,8 @@ export const endpoints = {
     label: (id: string) => `/computers/${seg(id)}/label.zpl`,
     /** Upload da foto do equipamento (multipart). */
     photo: (id: string) => `/computers/${seg(id)}/photo`,
+    /** Importa o .csv gerado pelo coletor Windows (multipart). */
+    importTelemetry: () => '/computers/import-telemetry',
   },
 
   /**

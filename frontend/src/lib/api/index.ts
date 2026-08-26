@@ -278,6 +278,27 @@ export const computersApi = {
   /** Upload da foto do equipamento; devolve o ativo com `photoUrl` atualizado. */
   uploadPhoto: (id: string, file: File): Promise<Computer> =>
     apiUpload<Computer>(endpoints.computers.photo(id), file, 'photo'),
+
+  /**
+   * Importa o .csv gerado pelo coletor Windows (`agent/vellor-agent.ps1`).
+   * Cada linha vira um `HealthSnapshot` para o computador correspondente
+   * (casado por assetTag/hostname); linhas sem computador cadastrado voltam
+   * em `errors`, sem derrubar a importação inteira.
+   */
+  importTelemetryCsv: (file: File): Promise<TelemetryCsvImportResult> =>
+    apiUpload<TelemetryCsvImportResult>(endpoints.computers.importTelemetry(), file, 'file'),
+}
+
+/** Resultado de `computersApi.importTelemetryCsv`. */
+export interface TelemetryCsvImportResult {
+  totalRows: number
+  imported: number
+  errors: Array<{
+    line: number
+    assetTag: string | null
+    hostname: string | null
+    reason: string
+  }>
 }
 
 // ============================================================================

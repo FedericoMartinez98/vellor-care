@@ -17,6 +17,7 @@ import {
   Package,
   Settings,
   ShieldCheck,
+  UploadCloud,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -52,6 +53,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', href: '/', icon: LayoutDashboard, module: 'dashboard' },
   { label: 'Inventário', href: '/inventario', icon: MonitorSmartphone, module: 'inventario' },
+  { label: 'Importar Telemetria', href: '/importar-telemetria', icon: UploadCloud, module: 'inventario' },
   { label: 'Preventivas', href: '/preventivas', icon: ShieldCheck, module: 'preventivas' },
   { label: 'Calendário', href: '/calendario', icon: CalendarDays, module: 'calendario' },
   { label: 'Histórico', href: '/historico', icon: History, module: 'historico' },

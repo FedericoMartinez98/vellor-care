@@ -6,6 +6,7 @@ import com.vellor.care.application.computer.GetComputerUseCase;
 import com.vellor.care.application.computer.ListComputersUseCase;
 import com.vellor.care.application.computer.RecordHealthSnapshotUseCase;
 import com.vellor.care.application.computer.UpdateComputerUseCase;
+import com.vellor.care.application.telemetry.ImportTelemetryCsvUseCase;
 import com.vellor.care.domain.model.Computer;
 import com.vellor.care.domain.model.ComputerStatus;
 import com.vellor.care.domain.model.HealthSnapshot;
@@ -27,7 +28,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.UUID;
 
@@ -44,6 +48,7 @@ public class ComputerController {
     private final DeleteComputerUseCase deleteComputerUseCase;
     private final RecordHealthSnapshotUseCase recordHealthSnapshotUseCase;
     private final HealthSnapshotRepository healthSnapshotRepository;
+    private final ImportTelemetryCsvUseCase importTelemetryCsvUseCase;
 
     @GetMapping
     @Operation(summary = "Listar computadores", description = "Retorna lista de computadores com suporte a filtro por setor, status ou busca textual.")
@@ -134,6 +139,23 @@ public class ComputerController {
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         deleteComputerUseCase.execute(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/import-telemetry")
+    @Operation(
+        summary = "Importar telemetria via CSV",
+        description = "Recebe o .csv gerado pelo coletor Windows e grava um snapshot de saude por linha, "
+            + "casando cada linha com um computador ja cadastrado (por assetTag ou hostname)."
+    )
+    public ResponseEntity<ImportTelemetryCsvUseCase.ImportResult> importTelemetry(
+        @RequestParam("file") MultipartFile file
+    ) {
+        try {
+            ImportTelemetryCsvUseCase.ImportResult result = importTelemetryCsvUseCase.execute(file.getInputStream());
+            return ResponseEntity.ok(result);
+        } catch (IOException ex) {
+            throw new UncheckedIOException("Falha ao ler o arquivo enviado.", ex);
+        }
     }
 
     @GetMapping("/{id}/health-history")
