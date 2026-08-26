@@ -4,7 +4,7 @@
 # ==============================================================================
 
 param (
-    [string]$ApiUrl = "https://vellor-care-production.up.railway.app/api/agent/telemetry",
+    [string]$ApiUrl = "http://192.168.152.60:8080/api/v1/agent/telemetry",
     [Parameter(Mandatory = $true)]
     [string]$ApiKey,
     [string]$AssetTag = ""
