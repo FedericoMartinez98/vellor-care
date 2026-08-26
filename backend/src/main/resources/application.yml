@@ -3,9 +3,9 @@ spring:
     name: vellor-care-api
 
   datasource:
-    url: ${DB_URL:jdbc:postgresql://localhost:5432/vellor_care}
-    username: ${DB_USER:vellor}
-    password: ${DB_PASSWORD:vellor}
+    url: ${SPRING_DATASOURCE_URL:${DB_URL:jdbc:postgresql://localhost:5432/vellor_care}}
+    username: ${SPRING_DATASOURCE_USERNAME:${DB_USER:${PGUSER:vellor}}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:${PGPASSWORD:vellor}}}
     driver-class-name: org.postgresql.Driver
     hikari:
       pool-name: vellor-pool
@@ -45,7 +45,7 @@ spring:
       max-request-size: 32MB
 
 server:
-  port: ${SERVER_PORT:8080}
+  port: ${PORT:${SERVER_PORT:8080}}
   compression:
     enabled: true
     mime-types: application/json,text/csv,application/pdf
