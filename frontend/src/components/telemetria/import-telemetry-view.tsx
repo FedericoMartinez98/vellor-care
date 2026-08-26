@@ -48,8 +48,11 @@ function ImportTelemetryView() {
       const response = await computersApi.importTelemetryCsv(file)
       setResult(response)
 
-      if (response.imported > 0) {
-        toast.success(`${response.imported} de ${response.totalRows} linha(s) importada(s).`)
+      if (response.created > 0) {
+        toast.success(`${response.created} computador(es) novo(s) cadastrado(s) automaticamente.`)
+      }
+      if (response.updated > 0) {
+        toast.success(`${response.updated} computador(es) existente(s) atualizado(s).`)
       }
       if (response.errors.length > 0) {
         toast.error(`${response.errors.length} linha(s) não puderam ser importadas.`)
@@ -167,7 +170,8 @@ function ImportTelemetryView() {
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <p className="text-sm text-muted-foreground">
-              {result.imported} de {result.totalRows} linha(s) importada(s) com sucesso.
+              {result.created + result.updated} de {result.totalRows} linha(s) processada(s) —{' '}
+              {result.created} novo(s) computador(es) cadastrado(s), {result.updated} atualizado(s).
             </p>
 
             {result.errors.length > 0 ? (

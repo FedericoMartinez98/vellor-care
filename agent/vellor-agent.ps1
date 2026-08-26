@@ -43,17 +43,34 @@ $uptimeHours = [math]::Round(((Get-Date) - $lastBoot).TotalHours, 2)
 # 4. Uso de CPU e Memoria RAM
 $cpu = Get-CimInstance -ClassName Win32_Processor -ErrorAction SilentlyContinue | Select-Object -First 1
 $cpuUsage = if ($cpu -and $cpu.LoadPercentage) { [decimal]$cpu.LoadPercentage } else { 15.0 }
+$processorName = if ($cpu -and $cpu.Name) { $cpu.Name.Trim() } else { "Nao identificado" }
 
 $totalRam = if ($os) { $os.TotalVisibleMemorySize } else { 1 }
 $freeRam = if ($os) { $os.FreePhysicalMemory } else { 0 }
 $usedRam = $totalRam - $freeRam
 $ramUsagePercent = [math]::Round(($usedRam / $totalRam) * 100, 1)
+$ramGb = [math]::Max(1, [math]::Round($totalRam / 1MB))
 
 # 5. Armazenamento e Disco C:
 $diskC = Get-CimInstance -ClassName Win32_LogicalDisk -Filter "DeviceID='C:'" -ErrorAction SilentlyContinue
 $diskFreeGb = if ($diskC) { [math]::Round($diskC.FreeSpace / 1GB, 1) } else { 50.0 }
 $diskTotalGb = if ($diskC) { [math]::Round($diskC.Size / 1GB, 1) } else { 100.0 }
 $diskFreePercent = if ($diskTotalGb -gt 0) { [math]::Round(($diskFreeGb / $diskTotalGb) * 100, 1) } else { 50.0 }
+
+# 5b. Tipo de disco (SSD/HDD) do disco fisico principal, quando disponivel
+$storageType = "SSD_NVME"
+try {
+    $physDisk = Get-PhysicalDisk -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($physDisk) {
+        if ($physDisk.MediaType -eq "HDD") {
+            $storageType = "HDD"
+        } elseif ($physDisk.MediaType -eq "SSD") {
+            $storageType = if ($physDisk.BusType -eq "NVMe") { "SSD_NVME" } else { "SSD_SATA" }
+        }
+    }
+} catch {
+    # Fallback silencioso -- mantem SSD_NVME
+}
 
 # 6. Saude do SSD / SMART (via StorageReliabilityCounter do Windows 10/11)
 $ssdHealth = 98.0
@@ -102,6 +119,10 @@ $row = [PSCustomObject]@{
     manufacturer     = $manufacturer
     model            = $model
     serialNumber     = $serialNumber
+    processor        = $processorName
+    ramGb            = $ramGb
+    storageType      = $storageType
+    storageGb        = [int][math]::Round($diskTotalGb)
     collectedAt      = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     ssdHealthPercent = Fmt $ssdHealth
     ssdPowerOnHours  = $ssdPowerHours
@@ -124,6 +145,9 @@ Write-Host "[OK] DADOS COLETADOS COM SUCESSO:" -ForegroundColor Green
 Write-Host "  * Hostname:        $hostname ($manufacturer $model)" -ForegroundColor White
 Write-Host "  * Numero de Serie: $serialNumber" -ForegroundColor White
 Write-Host "  * Sistema:         $osCaption (Build $osBuild)" -ForegroundColor White
+Write-Host "  * Processador:     $processorName" -ForegroundColor White
+Write-Host "  * RAM Total:       $ramGb GB" -ForegroundColor White
+Write-Host "  * Disco Total:     $diskTotalGb GB ($storageType)" -ForegroundColor White
 Write-Host "  * Uptime:          $uptimeHours horas" -ForegroundColor White
 Write-Host "  * Uso CPU:         $cpuUsage %" -ForegroundColor Yellow
 Write-Host "  * Uso RAM:         $ramUsagePercent %" -ForegroundColor Yellow

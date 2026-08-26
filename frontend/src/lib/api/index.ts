@@ -292,7 +292,10 @@ export const computersApi = {
 /** Resultado de `computersApi.importTelemetryCsv`. */
 export interface TelemetryCsvImportResult {
   totalRows: number
-  imported: number
+  /** Computadores novos, cadastrados automaticamente a partir da linha do CSV. */
+  created: number
+  /** Computadores já existentes: só recebeu um novo snapshot de saúde. */
+  updated: number
   errors: Array<{
     line: number
     assetTag: string | null
