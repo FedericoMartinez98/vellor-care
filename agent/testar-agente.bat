@@ -1,11 +1,13 @@
 @echo off
-title Vellor PC Care - Agente de Telemetria
+title Vellor PC Care - Coletor de Telemetria
 chcp 65001 > nul
 cls
 
 echo ========================================================
-echo       EXECUTANDO AGENTE VELLOR PC CARE
+echo     COLETANDO TELEMETRIA DESTE COMPUTADOR (VELLOR CARE)
 echo ========================================================
+echo Isso gera um arquivo .csv na Area de Trabalho.
+echo Depois, suba esse arquivo manualmente no site do Vellor Care.
 echo.
 
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0vellor-agent.ps1"

@@ -1,19 +1,22 @@
 # ==============================================================================
-# Vellor PC Care - Agente de Telemetria Windows (PowerShell)
-# Versao: 1.0.0
+# Vellor PC Care - Coletor de Telemetria Windows (PowerShell)
+# Versao: 2.0.0
+#
+# Execucao manual, uma vez por vez -- NAO instala servico, NAO agenda tarefa,
+# NAO se conecta a rede nenhuma. So le informacoes do proprio Windows e grava
+# um arquivo .csv local. O upload para o Vellor PC Care e feito manualmente
+# por quem rodou o script, atraves do site.
 # ==============================================================================
 
 param (
-    [string]$ApiUrl = "http://PLENITUDE-63:8080/api/v1/agent/telemetry",
-    [Parameter(Mandatory = $true)]
-    [string]$ApiKey,
-    [string]$AssetTag = ""
+    [string]$AssetTag = "",
+    [string]$OutputPath = "$([Environment]::GetFolderPath('Desktop'))"
 )
 
 Write-Host "========================================================" -ForegroundColor Cyan
-Write-Host "     VELLOR PC CARE -- AGENTE DE TELEMETRIA WINDOWS      " -ForegroundColor Cyan
+Write-Host "     VELLOR PC CARE -- COLETOR DE TELEMETRIA WINDOWS     " -ForegroundColor Cyan
 Write-Host "========================================================" -ForegroundColor Cyan
-Write-Host "Iniciando diagnostico do equipamento..." -ForegroundColor Gray
+Write-Host "Iniciando diagnostico do equipamento (execucao local, sem rede)..." -ForegroundColor Gray
 
 # 1. Coleta de Informacoes do Sistema e Hostname
 $compSystem = Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction SilentlyContinue
@@ -85,27 +88,35 @@ try {
 
 $gpuTemp = [math]::Max(40.0, $cpuTemp - 5.0)
 
-# Monta o Objeto de Telemetria
-$payload = [ordered]@{
-    assetTag           = $AssetTag
-    hostname           = $hostname
-    collectedAt        = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-    ssdHealthPercent   = $ssdHealth
-    ssdPowerOnHours    = $ssdPowerHours
-    cpuTempC           = $cpuTemp
-    gpuTempC           = $gpuTemp
-    ssdTempC           = $ssdTemp
-    cpuUsagePercent    = $cpuUsage
-    ramUsagePercent    = $ramUsagePercent
-    diskFreePercent    = $diskFreePercent
-    diskFreeGb         = $diskFreeGb
-    uptimeHours        = $uptimeHours
-    lastBootAt         = $lastBoot.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-    windowsVersion     = $osCaption
-    windowsBuild       = $osBuild
-}
+# Formata numeros com ponto decimal (cultura invariante), independente da
+# configuracao regional do Windows -- senao maquinas em pt-BR gravam "75,5"
+# em vez de "75.5" e quebram qualquer importador que espere padrao CSV/JSON.
+$inv = [System.Globalization.CultureInfo]::InvariantCulture
+function Fmt($value) { [decimal]$value | ForEach-Object { $_.ToString($inv) } }
 
-$jsonBody = $payload | ConvertTo-Json -Depth 4
+# Monta a linha de telemetria (mesmos nomes de campo usados pela API, para
+# facilitar a importacao no site depois)
+$row = [PSCustomObject]@{
+    assetTag         = $AssetTag
+    hostname         = $hostname
+    manufacturer     = $manufacturer
+    model            = $model
+    serialNumber     = $serialNumber
+    collectedAt      = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+    ssdHealthPercent = Fmt $ssdHealth
+    ssdPowerOnHours  = $ssdPowerHours
+    cpuTempC         = Fmt $cpuTemp
+    gpuTempC         = Fmt $gpuTemp
+    ssdTempC         = Fmt $ssdTemp
+    cpuUsagePercent  = Fmt $cpuUsage
+    ramUsagePercent  = Fmt $ramUsagePercent
+    diskFreePercent  = Fmt $diskFreePercent
+    diskFreeGb       = Fmt $diskFreeGb
+    uptimeHours      = Fmt $uptimeHours
+    lastBootAt       = $lastBoot.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+    windowsVersion   = $osCaption
+    windowsBuild     = $osBuild
+}
 
 # Exibicao no Console
 Write-Host ""
@@ -122,20 +133,14 @@ Write-Host "  * Temp. CPU:       $cpuTemp C" -ForegroundColor Yellow
 Write-Host "  * Temp. SSD:       $ssdTemp C" -ForegroundColor Cyan
 Write-Host ""
 
-# Envio para o Servidor Vellor Care
-Write-Host "Enviando dados para o servidor: $ApiUrl ..." -ForegroundColor Gray
+# Grava o CSV localmente -- nenhuma conexao de rede e feita por este script.
+$timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+$safeAssetTag = ($AssetTag -replace '[\\/:*?"<>|]', '-')
+$fileName = "vellor-telemetria-$safeAssetTag-$timestamp.csv"
+$fullPath = Join-Path -Path $OutputPath -ChildPath $fileName
 
-$headers = @{
-    "Content-Type"    = "application/json; charset=utf-8"
-    "X-Agent-Api-Key" = $ApiKey
-}
+$row | Export-Csv -Path $fullPath -NoTypeInformation -Encoding UTF8
 
-try {
-    $response = Invoke-RestMethod -Uri $ApiUrl -Method Post -Body $jsonBody -Headers $headers -TimeoutSec 5 -ErrorAction Stop
-    Write-Host "[SUCESSO] Telemetria gravada no Vellor PC Care!" -ForegroundColor Green
-} catch {
-    Write-Host "[AVISO] Nao foi possivel conectar ao servidor remoto ($($_.Exception.Message))." -ForegroundColor Yellow
-    Write-Host "        Os dados foram coletados e validados localmente com sucesso!" -ForegroundColor DarkGray
-}
-
+Write-Host "[OK] Arquivo gerado: $fullPath" -ForegroundColor Green
+Write-Host "     Suba esse arquivo manualmente na tela de importacao do Vellor PC Care." -ForegroundColor DarkGray
 Write-Host "========================================================" -ForegroundColor Cyan
