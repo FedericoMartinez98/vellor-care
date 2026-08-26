@@ -4,7 +4,7 @@
 # ==============================================================================
 
 param (
-    [string]$ApiUrl = "http://192.168.152.60:8080/api/v1/agent/telemetry",
+    [string]$ApiUrl = "http://PLENITUDE-63:8080/api/v1/agent/telemetry",
     [Parameter(Mandatory = $true)]
     [string]$ApiKey,
     [string]$AssetTag = ""
