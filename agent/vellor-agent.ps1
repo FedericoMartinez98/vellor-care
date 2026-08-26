@@ -4,7 +4,7 @@
 # ==============================================================================
 
 param (
-    [string]$ApiUrl = "http://localhost:8080/api/v1/agent/telemetry",
+    [string]$ApiUrl = "https://vellor-care-production.up.railway.app/api/agent/telemetry",
     [string]$ApiKey = "vellor-agent-secret-api-key-2026",
     [string]$AssetTag = ""
 )
