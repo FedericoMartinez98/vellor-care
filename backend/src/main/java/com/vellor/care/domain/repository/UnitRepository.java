@@ -11,4 +11,5 @@ public interface UnitRepository {
     Optional<Unit> findByCode(String code);
     List<Unit> findAll();
     Unit save(Unit unit);
+    long count();
 }

@@ -16,4 +16,5 @@ public interface NotificationRepository {
     AppNotification save(AppNotification notification);
     void markAllReadByUserId(UUID userId);
     void deleteById(UUID id);
+    long count();
 }

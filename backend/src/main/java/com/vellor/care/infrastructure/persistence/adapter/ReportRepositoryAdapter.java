@@ -51,4 +51,9 @@ public class ReportRepositoryAdapter implements ReportRepository {
     public void deleteById(UUID id) {
         jpaReportRepository.deleteById(id);
     }
+
+    @Override
+    public long count() {
+        return jpaReportRepository.count();
+    }
 }

@@ -75,4 +75,9 @@ public class NotificationRepositoryAdapter implements NotificationRepository {
     public void deleteById(UUID id) {
         jpaNotificationRepository.deleteById(id);
     }
+
+    @Override
+    public long count() {
+        return jpaNotificationRepository.count();
+    }
 }

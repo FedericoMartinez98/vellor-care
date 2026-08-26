@@ -13,4 +13,5 @@ public interface ReportRepository {
     List<ReportDefinition> findByReportKey(ReportKey reportKey);
     ReportDefinition save(ReportDefinition report);
     void deleteById(UUID id);
+    long count();
 }

@@ -44,4 +44,9 @@ public class UnitRepositoryAdapter implements UnitRepository {
         UnitEntity saved = jpaUnitRepository.save(entity);
         return unitMapper.toDomain(saved);
     }
+
+    @Override
+    public long count() {
+        return jpaUnitRepository.count();
+    }
 }
