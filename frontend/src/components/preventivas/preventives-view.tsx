@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   Wrench,
 } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { MaintenanceDetailDialog } from '@/components/inventario/maintenance-detail-dialog'
 import { PageHeader } from '@/components/layout/page-header'
@@ -36,7 +37,9 @@ import {
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { isRemoteBackend } from '@/lib/api'
 import { formatDate, formatRelative } from '@/lib/format'
+import { useRealInventory } from '@/lib/hooks/use-real-inventory'
 import { effectiveMaintenanceStatus, preventiveHealthOf } from '@/lib/status'
 import { useVellor } from '@/lib/store'
 import type { Computer, Maintenance } from '@/lib/types'
@@ -44,13 +47,21 @@ import type { Computer, Maintenance } from '@/lib/types'
 export function PreventivesView() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const {
-    ready,
-    computers,
-    sectors,
-    maintenances,
-    getComputer,
-  } = useVellor()
+  const mock = useVellor()
+  const real = useRealInventory()
+  const remote = isRemoteBackend()
+
+  const ready = remote ? real.ready : mock.ready
+  const computers = remote ? real.computers : mock.computers
+  const sectors = remote ? real.sectors : mock.sectors
+  // Ordens de Serviço (criar/executar/concluir preventiva) ainda não foram
+  // religadas ao backend real -- ficam mock mesmo no modo remoto por
+  // enquanto, e as ações que dependem delas são bloqueadas mais abaixo.
+  const { maintenances } = mock
+  const getComputer = React.useCallback(
+    (id: string) => (remote ? real.computers.find((c) => c.id === id) : mock.getComputer(id)),
+    [remote, real.computers, mock],
+  )
 
   const [executionOpen, setExecutionOpen] = React.useState(false)
   const [rescheduleOpen, setRescheduleOpen] = React.useState(false)
@@ -58,6 +69,18 @@ export function PreventivesView() {
 
   const [selectedMaintenance, setSelectedMaintenance] = React.useState<Maintenance | undefined>()
   const [selectedComputer, setSelectedComputer] = React.useState<Computer | undefined>()
+
+  // Criar/iniciar/concluir Ordem de Serviço ainda grava só no mock (ver nota
+  // acima) -- abrir o diálogo de execução aqui daria a impressão de que
+  // funciona de verdade no modo remoto, quando na verdade não persiste nada.
+  function openExecution() {
+    if (remote) {
+      toast.error('Execução de preventiva ainda não está ligada ao backend real.')
+      return false
+    }
+    setExecutionOpen(true)
+    return true
+  }
 
   // Abre dialog a partir de ?nova=1&computerId=...
   React.useEffect(() => {
@@ -70,8 +93,9 @@ export function PreventivesView() {
         const found = getComputer(computerId)
         if (found) setSelectedComputer(found)
       }
-      setExecutionOpen(true)
+      openExecution()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, searchParams, getComputer])
 
   // Estatísticas do topo
@@ -185,7 +209,7 @@ export function PreventivesView() {
                 onClick={() => {
                   setSelectedComputer(comp)
                   setSelectedMaintenance(undefined)
-                  setExecutionOpen(true)
+                  openExecution()
                 }}
               >
                 <Wrench className="mr-1 size-3.5" />
@@ -196,7 +220,7 @@ export function PreventivesView() {
         },
       },
     ]
-  }, [sectors])
+  }, [sectors, remote])
 
   // Colunas de Ordens de Serviço
   const osColumns = React.useMemo<ColumnDef<Maintenance>[]>(() => {
@@ -290,13 +314,13 @@ export function PreventivesView() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Manutenções Preventivas"
-        description="Painel de controle do ciclo de 90 dias, semáforo operacional e execução de checklists."
+        description="Painel de controle do ciclo de 30 dias, semáforo operacional e execução de checklists."
         actions={
           <Button
             onClick={() => {
               setSelectedMaintenance(undefined)
               setSelectedComputer(undefined)
-              setExecutionOpen(true)
+              openExecution()
             }}
           >
             <Plus className="mr-2 size-4" />
@@ -357,6 +381,11 @@ export function PreventivesView() {
           </TabsContent>
 
           <TabsContent value="ordens" className="m-0 focus-visible:outline-none">
+            {remote ? (
+              <p className="mb-3 text-xs text-muted-foreground">
+                Dados de demonstração — Ordens de Serviço ainda não estão ligadas ao backend real.
+              </p>
+            ) : null}
             <DataTable<Maintenance, unknown>
               columns={osColumns}
               data={openMaintenances}
