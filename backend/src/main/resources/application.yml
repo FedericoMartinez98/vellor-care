@@ -3,9 +3,9 @@ spring:
     name: vellor-care-api
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL:${DB_URL:jdbc:postgresql://localhost:5432/vellor_care}}
-    username: ${SPRING_DATASOURCE_USERNAME:${DB_USER:${PGUSER:vellor}}}
-    password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:${PGPASSWORD:vellor}}}
+    url: ${SPRING_DATASOURCE_URL:${DATABASE_URL:jdbc:postgresql://localhost:5432/vellor_care}}
+    username: ${SPRING_DATASOURCE_USERNAME:vellor}
+    password: ${SPRING_DATASOURCE_PASSWORD:vellor}
     driver-class-name: org.postgresql.Driver
     hikari:
       pool-name: vellor-pool
