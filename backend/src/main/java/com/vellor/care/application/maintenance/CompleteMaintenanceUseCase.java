@@ -1,5 +1,6 @@
 package com.vellor.care.application.maintenance;
 
+import com.vellor.care.application.computer.CreateComputerUseCase;
 import com.vellor.care.domain.model.ChecklistGroup;
 import com.vellor.care.domain.model.Computer;
 import com.vellor.care.domain.model.ComputerStatus;
@@ -164,7 +165,9 @@ public class CompleteMaintenanceUseCase {
 
         // 5. Atualiza o Computador (Ciclo de 90 dias e Status ATIVO)
         computerRepository.findById(maintenance.computerId()).ifPresent(comp -> {
-            LocalDate nextMaint = LocalDate.now().plusDays(comp.maintenanceIntervalDays() > 0 ? comp.maintenanceIntervalDays() : 90);
+            LocalDate nextMaint = LocalDate.now().plusDays(
+                comp.maintenanceIntervalDays() > 0 ? comp.maintenanceIntervalDays() : CreateComputerUseCase.DEFAULT_MAINTENANCE_INTERVAL_DAYS
+            );
             Computer updatedComp = new Computer(
                 comp.id(),
                 comp.assetTag(),

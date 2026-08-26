@@ -19,6 +19,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class CreateComputerUseCase {
 
+    /** Ciclo padrão de preventiva (limpeza + checklist) quando o equipamento não informa um intervalo próprio. */
+    public static final int DEFAULT_MAINTENANCE_INTERVAL_DAYS = 30;
+
     private final ComputerRepository computerRepository;
 
     @Transactional
@@ -34,7 +37,9 @@ public class CreateComputerUseCase {
         Instant now = Instant.now();
         LocalDate nextMaintenance = command.nextMaintenanceAt() != null
             ? command.nextMaintenanceAt()
-            : LocalDate.now().plusDays(command.maintenanceIntervalDays() > 0 ? command.maintenanceIntervalDays() : 90);
+            : LocalDate.now().plusDays(
+                command.maintenanceIntervalDays() > 0 ? command.maintenanceIntervalDays() : DEFAULT_MAINTENANCE_INTERVAL_DAYS
+            );
 
         String qrPayload = command.qrPayload() != null && !command.qrPayload().isBlank()
             ? command.qrPayload()
@@ -57,7 +62,7 @@ public class CreateComputerUseCase {
             qrPayload,
             null,
             nextMaintenance,
-            command.maintenanceIntervalDays() > 0 ? command.maintenanceIntervalDays() : 90,
+            command.maintenanceIntervalDays() > 0 ? command.maintenanceIntervalDays() : DEFAULT_MAINTENANCE_INTERVAL_DAYS,
             null,
             now,
             now

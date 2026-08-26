@@ -72,7 +72,10 @@ vellor:
       search-base: ${VELLOR_AD_SEARCH_BASE:}
 
   maintenance:
-    default-interval-days: 90
+    # Nota: nao esta ligado a nenhum @Value/@ConfigurationProperties ainda -- o valor
+    # real vem de CreateComputerUseCase.DEFAULT_MAINTENANCE_INTERVAL_DAYS. Mantido
+    # aqui documentando a intencao; se for religar essa config, sincronizar os dois.
+    default-interval-days: 30
     warning-days: 7
     no-maintenance-alert-days: 120
 

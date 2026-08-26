@@ -42,6 +42,7 @@ import { apiFetch, ApiError, endpoints, isRemoteBackend } from '@/lib/api'
 import { type ApiComputer, mapApiComputer, toComputerWriteRequest } from '@/lib/api/mappers'
 import {
   COMPUTER_STATUS_LABELS,
+  DEFAULT_MAINTENANCE_INTERVAL_DAYS,
   STORAGE_TYPE_LABELS,
 } from '@/lib/constants'
 import { useRealInventory } from '@/lib/hooks/use-real-inventory'
@@ -56,7 +57,7 @@ export interface ComputerFormDialogProps {
   onSuccess?: (computer: Computer) => void
 }
 
-const DEFAULT_INTERVAL = 90
+const DEFAULT_INTERVAL = DEFAULT_MAINTENANCE_INTERVAL_DAYS
 
 export function ComputerFormDialog({
   open,

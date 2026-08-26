@@ -289,7 +289,7 @@ export const CHART_COLORS: string[] = [
 // ============================================================================
 
 /** Intervalo padrão entre preventivas, em dias. */
-export const DEFAULT_MAINTENANCE_INTERVAL_DAYS = 90
+export const DEFAULT_MAINTENANCE_INTERVAL_DAYS = 30
 /** Antecedência, em dias, para marcar a preventiva como "próxima". */
 export const PREVENTIVE_WARNING_DAYS = 7
 /** Temperatura de CPU considerada crítica, em °C. */
