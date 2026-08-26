@@ -4,9 +4,6 @@ export type { ConfirmDialogProps } from '@/components/shared/confirm-dialog'
 export { CopyButton } from '@/components/shared/copy-button'
 export type { CopyButtonProps } from '@/components/shared/copy-button'
 
-export { CopyButton } from '@/components/shared/copy-button'
-export type { CopyButtonProps } from '@/components/shared/copy-button'
-
 export { DataTable } from '@/components/shared/data-table'
 export type { DataTableProps, DataTableFacet } from '@/components/shared/data-table'
 
