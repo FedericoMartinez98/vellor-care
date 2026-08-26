@@ -50,10 +50,6 @@ public class NotificationEntity {
     @Column(name = "computer_id")
     private UUID computerId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "computer_id", insertable = false, updatable = false)
-    private ComputerEntity computer;
-
     @Column(name = "maintenance_id")
     private UUID maintenanceId;
 

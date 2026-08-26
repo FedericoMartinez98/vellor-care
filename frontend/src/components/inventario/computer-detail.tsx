@@ -18,6 +18,8 @@ import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { isRemoteBackend } from '@/lib/api'
+import { useRealInventory } from '@/lib/hooks/use-real-inventory'
 import { useVellor } from '@/lib/store'
 
 export interface ComputerDetailProps {
@@ -25,7 +27,17 @@ export interface ComputerDetailProps {
 }
 
 export function ComputerDetail({ computerId }: ComputerDetailProps) {
-  const { ready, getComputer, getSector } = useVellor()
+  const mock = useVellor()
+  const real = useRealInventory()
+  const remote = isRemoteBackend()
+
+  const ready = remote ? real.ready : mock.ready
+  const computer = remote
+    ? real.computers.find((c) => c.id === computerId)
+    : mock.getComputer(computerId)
+  const sector = remote
+    ? real.sectors.find((s) => s.id === computer?.assignment.sectorId)
+    : mock.getSector(computer?.assignment.sectorId ?? '')
 
   if (!ready) {
     return (
@@ -39,8 +51,6 @@ export function ComputerDetail({ computerId }: ComputerDetailProps) {
       </div>
     )
   }
-
-  const computer = getComputer(computerId)
 
   if (!computer) {
     return (
@@ -61,8 +71,6 @@ export function ComputerDetail({ computerId }: ComputerDetailProps) {
       </div>
     )
   }
-
-  const sector = getSector(computer.assignment.sectorId)
 
   return (
     <div className="flex flex-col gap-6">

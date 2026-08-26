@@ -46,8 +46,10 @@ import {
   COMPUTER_STATUS_LABELS,
   PREVENTIVE_HEALTH_LABELS,
 } from '@/lib/constants'
+import { isRemoteBackend } from '@/lib/api'
 import { exportComputersCsv, exportComputersPdf, exportComputersXlsx } from '@/lib/export'
 import { formatDate, formatRelative } from '@/lib/format'
+import { useRealInventory } from '@/lib/hooks/use-real-inventory'
 import { computerIsCritical, preventiveHealthOf } from '@/lib/status'
 import { useVellor } from '@/lib/store'
 import { COMPUTER_STATUS, PREVENTIVE_HEALTH, type Computer } from '@/lib/types'
@@ -55,10 +57,23 @@ import { COMPUTER_STATUS, PREVENTIVE_HEALTH, type Computer } from '@/lib/types'
 export function InventoryView() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { ready, computers, sectors, deleteComputer } = useVellor()
+  const mock = useVellor()
+  const real = useRealInventory()
+  const remote = isRemoteBackend()
+
+  const ready = remote ? real.ready : mock.ready
+  const computers = remote ? real.computers : mock.computers
+  const sectors = remote ? real.sectors : mock.sectors
+  const deleteComputer = remote
+    ? (id: string) => { void real.removeComputer(id) }
+    : mock.deleteComputer
 
   const [formOpen, setFormOpen] = React.useState(false)
   const [editingComputer, setEditingComputer] = React.useState<Computer | undefined>()
+
+  React.useEffect(() => {
+    if (remote && real.error) toast.error(real.error)
+  }, [remote, real.error])
 
   // Abre dialog via query param ?novo=1 ou ?editar=ID
   React.useEffect(() => {
@@ -209,6 +224,10 @@ export function InventoryView() {
               <ComputerRowActions
                 computer={computer}
                 onEdit={(comp) => {
+                  if (remote) {
+                    toast.error('Edição manual ainda não está ligada ao backend real.')
+                    return
+                  }
                   setEditingComputer(comp)
                   setFormOpen(true)
                 }}
@@ -225,7 +244,7 @@ export function InventoryView() {
         },
       },
     ]
-  }, [sectors, deleteComputer, router])
+  }, [sectors, deleteComputer, router, remote])
 
   function handleExport(format: 'pdf' | 'xlsx' | 'csv') {
     try {
@@ -294,6 +313,12 @@ export function InventoryView() {
               <DropdownMenuContent align="end">
                 <DropdownMenuItem
                   onClick={() => {
+                    if (remote) {
+                      toast.error(
+                        'Cadastro manual ainda não está ligado ao backend real — use "Importar via CSV" por enquanto.',
+                      )
+                      return
+                    }
                     setEditingComputer(undefined)
                     setFormOpen(true)
                   }}
