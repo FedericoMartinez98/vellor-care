@@ -1,0 +1,67 @@
+package com.vellor.care.infrastructure.persistence.entity;
+
+import com.vellor.care.domain.model.MovementType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+import java.time.Instant;
+import java.util.UUID;
+
+@Entity
+@Table(name = "inventory_movements")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class InventoryMovementEntity {
+
+    @Id
+    @Column(name = "id", nullable = false)
+    private UUID id;
+
+    @Column(name = "part_id", nullable = false)
+    private UUID partId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "part_id", insertable = false, updatable = false)
+    private InventoryPartEntity part;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type", nullable = false, length = 20)
+    private MovementType type;
+
+    @Column(name = "quantity", nullable = false)
+    private int quantity;
+
+    @Column(name = "balance_after", nullable = false)
+    private int balanceAfter;
+
+    @Column(name = "maintenance_id")
+    private UUID maintenanceId;
+
+    @Column(name = "user_id", nullable = false)
+    private UUID userId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", insertable = false, updatable = false)
+    private UserEntity user;
+
+    @Column(name = "reason", columnDefinition = "TEXT")
+    private String reason;
+
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt;
+}
