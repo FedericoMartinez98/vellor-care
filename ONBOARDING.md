@@ -29,22 +29,36 @@ mecanismo é sempre o mesmo:
 
 ### Status por tela
 
+**Todas as telas leem do backend real.** O que sobrou são três diálogos de
+escrita, listados no fim.
+
 | Tela | Estado |
 |---|---|
 | Login / sessão / logout | **real** (com guard de rota) |
+| Dashboard | **real** |
 | Inventário (lista, ficha, criar, editar, excluir) | **real** |
 | Importar Telemetria (CSV) | **real** (com auto-cadastro) |
-| Preventivas — Fila de Equipamentos | **real** |
-| Preventivas — Ordens de Serviço (criar/executar/concluir/reagendar) | **real** |
+| Preventivas — fila + Ordens de Serviço (criar/executar/concluir/reagendar) | **real** |
+| Histórico + timeline da ficha do equipamento | **real** |
+| Calendário | **real** |
+| Relatórios | **real** |
+| Saúde / Telemetria | **real** |
+| Estoque de Peças (catálogo, saldos e razão de movimentos) | **real** (leitura) |
+| Setores (lista e conformidade) | **real** (leitura) |
 | Configurações → Usuários (criar/editar/excluir) | **real** |
-| Dashboard | mock |
-| Calendário | mock |
-| Histórico | mock |
-| Relatórios | mock |
-| Estoque de Peças (tela própria) | mock — mas o **catálogo** já é lido do backend real no seletor de peças da preventiva, e a baixa de estoque na conclusão é real |
-| Setores | mock |
-| Saúde | mock |
-| Notificações (sininho) / busca global (Cmd+K) | mock |
+| Notificações (sininho) e busca global (Ctrl+K) | **real** |
+
+**Ainda escrevem só no mock** (os três são diálogos; o backend **já tem** os
+endpoints, só falta ligar):
+
+| Diálogo | Endpoint que existe no backend |
+|---|---|
+| `estoque/part-form-dialog.tsx` — cadastrar/editar peça | `POST /parts`, `PUT /parts/{id}` |
+| `estoque/movement-dialog.tsx` — registrar entrada/saída | `POST /parts/movements` |
+| `setores/sector-form-dialog.tsx` — cadastrar/editar setor | `POST /sectors`, `PUT /sectors/{id}` |
+
+Excluir peça está **desabilitado** no modo remoto de propósito: não existe
+`DELETE /parts` no backend.
 
 Ao religar uma tela nova, o cuidado recorrente: os hooks `useReal*` **não são
 stores globais** — cada componente tem sua própria cópia. Depois de uma
@@ -89,6 +103,57 @@ Valor central em `CreateComputerUseCase.DEFAULT_MAINTENANCE_INTERVAL_DAYS`
 (frontend). Havia uma config `maintenance.default-interval-days` no
 `application.yml` que **nunca era lida por código nenhum** — está lá só
 documentando a intenção.
+
+---
+
+## Como retomar (subir tudo de novo)
+
+Nada disso sobe sozinho — os três serviços foram encerrados. Na ordem:
+
+**1. Postgres**
+```powershell
+C:\Users\ti03\dev-tools\pgsql\bin\pg_ctl.exe -D "C:\Users\ti03\dev-tools\pgdata" -l "C:\Users\ti03\dev-tools\pg.log" start
+```
+
+**2. Backend** (numa janela do PowerShell que fica aberta)
+```powershell
+$env:JAVA_HOME = "C:\Users\ti03\dev-tools\jdk-21.0.12.1+1"
+$env:Path = "$env:JAVA_HOME\bin;C:\Users\ti03\dev-tools\apache-maven-3.9.16\bin;$env:Path"
+$env:SPRING_DATASOURCE_URL = "jdbc:postgresql://localhost:5432/vellor_care"
+$env:SPRING_DATASOURCE_USERNAME = "vellor"
+$env:SPRING_DATASOURCE_PASSWORD = "vellor"
+$env:VELLOR_JWT_SECRET = "local-dev-test-secret-precisa-ter-32-bytes-no-minimo"
+$env:VELLOR_AGENT_KEY = "local-dev-agent-key-teste-123"
+$env:VELLOR_CORS_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000,http://PLENITUDE-63:3000,http://plenitude-63:3000,http://192.168.152.60:3000"
+cd "C:\Users\ti03\Desktop\Vellor PC Care - Copia\backend"
+mvn spring-boot:run
+```
+
+**3. Frontend** (outra janela; já existe build de produção pronto)
+```powershell
+cd "C:\Users\ti03\Desktop\Vellor PC Care - Copia\frontend"
+npm start -- -H 0.0.0.0 -p 3000
+```
+Se tiver mexido no código do frontend, rode `npm run build` antes.
+Para desenvolver com recarregamento automático, use `npm run dev -- -H 0.0.0.0 -p 3000`.
+
+**Acesso:** `http://PLENITUDE-63:3000` — login `ti@plenitudedistribuidora.com`,
+senha `Vellor123` (ADMINISTRADOR).
+
+**Se ninguém na rede conseguir abrir:** a porta 8080 já foi liberada no
+firewall, a 3000 pode não ter sido. Rode como Administrador:
+```powershell
+New-NetFirewallRule -DisplayName "Vellor Care Frontend (LAN)" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow -Profile Private
+```
+
+### Próximos passos sugeridos
+
+1. **Serviço do Windows + backup do Postgres.** Hoje tudo depende de alguém
+   subir manualmente e da máquina não reiniciar. Sem isso não vira uso diário.
+2. Ligar os três diálogos de escrita que faltam (tabela acima).
+3. Decidir o destino do backend: seguir interno, Render (grátis, com cold
+   start) ou Railway pago.
+4. Resolver o histórico do git com os segredos antigos (ver Segurança).
 
 ---
 
