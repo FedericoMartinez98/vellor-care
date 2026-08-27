@@ -14,7 +14,9 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
+import { isRemoteBackend } from '@/lib/api'
 import { formatRelative, initials } from '@/lib/format'
+import { useRealDatabase } from '@/lib/hooks/use-real-database'
 import { buildRecentActivity, useVellor } from '@/lib/store'
 
 /** Quantidade de atendimentos exibidos no feed. */
@@ -23,11 +25,12 @@ const ACTIVITY_LIMIT = 8
 /** Feed das últimas manutenções movimentadas, da mais recente para a mais antiga. */
 function RecentActivity() {
   const vellor = useVellor()
+  const real = useRealDatabase()
+  const remote = isRemoteBackend()
 
-  const entries = useMemo(
-    () => buildRecentActivity(vellor.db, ACTIVITY_LIMIT),
-    [vellor.db],
-  )
+  const db = remote ? real.db : vellor.db
+
+  const entries = useMemo(() => buildRecentActivity(db, ACTIVITY_LIMIT), [db])
 
   return (
     <Card className="gap-4">

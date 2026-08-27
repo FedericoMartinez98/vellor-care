@@ -1,5 +1,6 @@
 'use client'
 
+import * as React from 'react'
 import { useMemo } from 'react'
 import Link from 'next/link'
 import { ArrowUpRight, ShieldCheck } from 'lucide-react'
@@ -14,7 +15,9 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
+import { isRemoteBackend } from '@/lib/api'
 import { daysUntil } from '@/lib/format'
+import { useRealInventory } from '@/lib/hooks/use-real-inventory'
 import { computerIsCritical, criticalReasons, preventiveHealthOf } from '@/lib/status'
 import { useVellor } from '@/lib/store'
 import type { Computer, PreventiveHealth } from '@/lib/types'
@@ -45,10 +48,20 @@ function overdueDaysOf(computer: Computer): number {
 /** Cartão com os equipamentos mais urgentes do parque. */
 function AttentionList() {
   const vellor = useVellor()
-  const { getSectorName } = vellor
+  const realInventory = useRealInventory()
+  const remote = isRemoteBackend()
+
+  const computers = remote ? realInventory.computers : vellor.db.computers
+  const getSectorName = React.useCallback(
+    (sectorId: string) =>
+      remote
+        ? (realInventory.sectors.find((s) => s.id === sectorId)?.name ?? '—')
+        : vellor.getSectorName(sectorId),
+    [remote, realInventory.sectors, vellor],
+  )
 
   const items = useMemo<AttentionItem[]>(() => {
-    const scored = vellor.db.computers.map<AttentionItem>((computer) => {
+    const scored = computers.map<AttentionItem>((computer) => {
       const health = preventiveHealthOf(computer)
       const critical = computerIsCritical(computer)
 
@@ -70,7 +83,7 @@ function AttentionList() {
       .filter((item) => item.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, ATTENTION_LIMIT)
-  }, [vellor.db.computers, getSectorName])
+  }, [computers, getSectorName])
 
   return (
     <Card className="gap-4">

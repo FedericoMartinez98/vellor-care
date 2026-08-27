@@ -23,7 +23,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { isRemoteBackend } from '@/lib/api'
 import { formatDuration, formatNumber, formatPercent } from '@/lib/format'
+import { useRealDatabase } from '@/lib/hooks/use-real-database'
 import { preventiveHealthOf } from '@/lib/status'
 import {
   buildDashboardMetrics,
@@ -115,11 +117,15 @@ function complianceToneOf(rate: number): ComplianceTone {
 
 function DashboardView() {
   const vellor = useVellor()
+  const real = useRealDatabase()
+  const remote = isRemoteBackend()
   const router = useRouter()
   const [period, setPeriod] = useState<PeriodValue>('6')
 
   const months = period === '6' ? 6 : 12
-  const { db, ready } = vellor
+  // Os selectors abaixo são os mesmos nos dois modos -- só a origem do `db` muda.
+  const db = remote ? real.db : vellor.db
+  const ready = remote ? real.ready : vellor.ready
 
   const metrics = useMemo(() => buildDashboardMetrics(db), [db])
   const monthlySeries = useMemo(() => buildMonthlySeries(db, months), [db, months])
