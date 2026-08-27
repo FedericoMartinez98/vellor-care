@@ -12,7 +12,7 @@
 
 import * as React from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useForm } from 'react-hook-form'
+import { useForm, type FieldErrors } from 'react-hook-form'
 import {
   Camera,
   CheckCircle2,
@@ -73,6 +73,31 @@ const CHECKLIST_GROUPS: ChecklistGroup[] = [
   'MEDICOES',
 ]
 
+type TabKey = 'checklist' | 'pecas' | 'fotos' | 'fechamento'
+
+/**
+ * Em qual aba mora cada campo do formulário. As abas do Radix desmontam o
+ * conteúdo inativo, então um erro de validação num campo de aba escondida
+ * (ex: a assinatura, no Fechamento) não tem onde ser exibido: o botão
+ * "Concluir" simplesmente não fazia nada, sem nenhum aviso.
+ */
+const FIELD_TAB: Record<string, TabKey> = {
+  items: 'checklist',
+  parts: 'pecas',
+  photosBefore: 'fotos',
+  photosAfter: 'fotos',
+  durationMinutes: 'fechamento',
+  notes: 'fechamento',
+  signatureDataUrl: 'fechamento',
+}
+
+const TAB_LABEL: Record<TabKey, string> = {
+  checklist: 'Checklist',
+  pecas: 'Peças',
+  fotos: 'Fotos',
+  fechamento: 'Fechamento',
+}
+
 export function PreventiveExecutionDialog({
   open,
   onOpenChange,
@@ -87,6 +112,7 @@ export function PreventiveExecutionDialog({
   const [timerSeconds, setTimerSeconds] = React.useState<number>(0)
   const [timerActive, setTimerActive] = React.useState<boolean>(true)
   const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const [activeTab, setActiveTab] = React.useState<TabKey>('checklist')
   // O cronômetro só preenche a duração enquanto o técnico não digitar um valor
   // próprio -- antes ele sobrescrevia o campo a cada segundo, tornando
   // impossível corrigir o tempo manualmente.
@@ -154,6 +180,7 @@ export function PreventiveExecutionDialog({
       setTimerSeconds(0)
       setTimerActive(true)
       durationTouchedRef.current = false
+      setActiveTab('checklist')
       form.reset({
         items: initialItems,
         durationMinutes: 45,
@@ -207,6 +234,38 @@ export function PreventiveExecutionDialog({
       return
     }
     toast.success('Todos os itens foram marcados como concluídos.')
+  }
+
+  /**
+   * Sem isto o formulário falha em silêncio quando o campo obrigatório está
+   * numa aba que não está aberta. Avisa o que falta e leva o técnico até lá.
+   */
+  function onInvalid(errors: FieldErrors<ChecklistFormInput>) {
+    const firstField = Object.keys(errors)[0]
+    if (!firstField) return
+
+    const tab = FIELD_TAB[firstField] ?? 'fechamento'
+    setActiveTab(tab)
+
+    // A mensagem pode estar aninhada (ex: items.3.value).
+    const raw = errors[firstField as keyof typeof errors] as unknown
+    let message: string | undefined
+    if (raw && typeof raw === 'object') {
+      if ('message' in raw && typeof raw.message === 'string') {
+        message = raw.message
+      } else if (Array.isArray(raw)) {
+        const nested = raw.find(Boolean) as Record<string, { message?: string }> | undefined
+        message = nested
+          ? Object.values(nested).find((v) => v?.message)?.message
+          : undefined
+      }
+    }
+
+    toast.error(
+      message
+        ? `${message} (aba ${TAB_LABEL[tab]})`
+        : `Há campos obrigatórios pendentes na aba ${TAB_LABEL[tab]}.`,
+    )
   }
 
   async function onSubmit(values: ChecklistFormInput) {
@@ -337,8 +396,12 @@ export function PreventiveExecutionDialog({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <Tabs defaultValue="checklist" className="w-full">
+          <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-6">
+            <Tabs
+              value={activeTab}
+              onValueChange={(value) => setActiveTab(value as TabKey)}
+              className="w-full"
+            >
               <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="checklist" className="gap-2">
                   <Sparkles className="size-4" />
