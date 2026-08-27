@@ -109,6 +109,20 @@ const LABEL_FOOTER = 'Vellor Care - Patrimonio TI'
 const EMPLOYEE_MAX_CHARS = 24
 
 /**
+ * Largura (em dots @203dpi) disponível para o nome da máquina antes do QR Code,
+ * que começa em x=250. Sobra 250 - 12 (margem esquerda) - 8 (respiro) = 230.
+ */
+const HOSTNAME_BLOCK_DOTS = 230
+
+/**
+ * Quantos caracteres cabem numa linha do nome da máquina na fonte `^A0N,20`.
+ * A fonte A0 é proporcional (largura média ~0,55 da altura), então
+ * 230 / (20 * 0,55) ≈ 20. Usado só para decidir se o texto vai ocupar duas
+ * linhas e deslocar o que vem abaixo -- a quebra em si é feita pelo `^FB`.
+ */
+const HOSTNAME_CHARS_PER_LINE = 20
+
+/**
  * Neutraliza os caracteres de controle do ZPL dentro de um campo `^FD`.
  * `^` vira espaço, `~` vira hífen e `\` vira barra; quebras de linha viram espaço.
  */
@@ -152,6 +166,13 @@ export function buildZpl(data: AssetLabelData, opts?: ZplOptions): string {
     Math.max(1, Math.floor(opts?.qrMagnification ?? 5 * factor)),
   )
 
+  // O nome da máquina precisa sair inteiro. Sem `^FB` o ZPL não quebra linha:
+  // o texto seguia reto e era cortado na borda da etiqueta (ou passava por
+  // baixo do QR Code). Com o bloco, ele quebra em até 2 linhas -- e quando
+  // usa a segunda, o setor e o responsável descem para não sobrepor.
+  const hostnameLines = hostname.length > HOSTNAME_CHARS_PER_LINE ? 2 : 1
+  const shift = (hostnameLines - 1) * 22
+
   return [
     '^XA',
     '^CI28',
@@ -161,9 +182,9 @@ export function buildZpl(data: AssetLabelData, opts?: ZplOptions): string {
     `^FO${d(12)},${d(14)}^A0N,${d(26)},${d(26)}^FD${company}^FS`,
     `^FO${d(12)},${d(46)}^GB${d(376)},${d(2)},${d(2)}^FS`,
     `^FO${d(12)},${d(58)}^A0N,${d(34)},${d(34)}^FD${assetTag}^FS`,
-    `^FO${d(12)},${d(98)}^A0N,${d(20)},${d(20)}^FD${hostname}^FS`,
-    `^FO${d(12)},${d(124)}^A0N,${d(18)},${d(18)}^FD${sector}^FS`,
-    `^FO${d(12)},${d(148)}^A0N,${d(18)},${d(18)}^FD${employeeName}^FS`,
+    `^FO${d(12)},${d(98)}^A0N,${d(20)},${d(20)}^FB${d(HOSTNAME_BLOCK_DOTS)},2,0,L^FD${hostname}^FS`,
+    `^FO${d(12)},${d(124 + shift)}^A0N,${d(18)},${d(18)}^FD${sector}^FS`,
+    `^FO${d(12)},${d(148 + shift)}^A0N,${d(18)},${d(18)}^FD${employeeName}^FS`,
     `^FO${d(250)},${d(58)}^BQN,2,${qrMagnification}^FDLA,${url}^FS`,
     `^FO${d(12)},${d(196)}^A0N,${d(16)},${d(16)}^FD${LABEL_FOOTER}^FS`,
     '^XZ',
@@ -286,6 +307,15 @@ export function printLabelHtml(data: AssetLabelData, qrDataUrl: string): string 
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  /* O nome da máquina sai inteiro: quebra em mais de uma linha em vez de
+     ser cortado com "...". Quebra também no meio da palavra, porque
+     hostname costuma ser uma palavra só com hífens. */
+  .linha--host {
+    white-space: normal;
+    overflow: visible;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
   .linha strong { font-weight: 600; color: #0f172a; }
   .rodape {
     margin: auto 0 0;
@@ -315,7 +345,7 @@ export function printLabelHtml(data: AssetLabelData, qrDataUrl: string): string 
     <div class="dados">
       <p class="empresa">${company}</p>
       <p class="patrimonio">${assetTag}</p>
-      <p class="linha"><strong>${hostname}</strong></p>
+      <p class="linha linha--host"><strong>${hostname}</strong></p>
       <p class="linha">${sector}</p>
       <p class="linha">${employeeName}</p>
       <p class="rodape">${footer}</p>

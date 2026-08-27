@@ -119,7 +119,8 @@ function QrCodeView({ computer, sectorName, size = 176 }: QrCodeViewProps) {
       <div className="flex min-w-0 flex-1 flex-col gap-3">
         <div className="min-w-0">
           <p className="text-2xl font-semibold tracking-tight tabular">{computer.assetTag}</p>
-          <p className="truncate text-sm text-muted-foreground">{computer.hostname}</p>
+          {/* Sem `truncate`: o nome da máquina precisa aparecer inteiro. */}
+          <p className="break-words text-sm text-muted-foreground">{computer.hostname}</p>
         </div>
 
         <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
