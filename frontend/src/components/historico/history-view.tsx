@@ -49,7 +49,10 @@ import {
   exportMaintenancesPdf,
   exportMaintenancesXlsx,
 } from '@/lib/export'
+import { isRemoteBackend } from '@/lib/api'
 import { formatDate, formatDuration } from '@/lib/format'
+import { useRealInventory } from '@/lib/hooks/use-real-inventory'
+import { useRealMaintenances } from '@/lib/hooks/use-real-maintenances'
 import { effectiveMaintenanceStatus } from '@/lib/status'
 import { useVellor } from '@/lib/store'
 import {
@@ -59,7 +62,14 @@ import {
 } from '@/lib/types'
 
 export function HistoryView() {
-  const { ready, maintenances, sectors } = useVellor()
+  const mock = useVellor()
+  const realMaintenances = useRealMaintenances()
+  const realInventory = useRealInventory()
+  const remote = isRemoteBackend()
+
+  const ready = remote ? realMaintenances.ready && realInventory.ready : mock.ready
+  const maintenances = remote ? realMaintenances.maintenances : mock.maintenances
+  const sectors = remote ? realInventory.sectors : mock.sectors
   const [detailOpen, setDetailOpen] = React.useState(false)
   const [selectedMaintenance, setSelectedMaintenance] = React.useState<Maintenance | undefined>()
 

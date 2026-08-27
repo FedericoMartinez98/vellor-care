@@ -29,8 +29,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { isRemoteBackend } from '@/lib/api'
 import { MAINTENANCE_TYPE_LABELS } from '@/lib/constants'
 import { formatCurrency, formatDuration, formatNumber } from '@/lib/format'
+import { useRealMaintenances } from '@/lib/hooks/use-real-maintenances'
 import { useVellor } from '@/lib/store'
 import { checklistCompletion, effectiveMaintenanceStatus } from '@/lib/status'
 import { MAINTENANCE_TYPE, type Maintenance, type MaintenanceStatus } from '@/lib/types'
@@ -72,12 +74,16 @@ function Metric({ label, value }: { label: string; value: string }) {
 
 function ComputerTimeline({ computerId }: ComputerTimelineProps) {
   const vellor = useVellor()
+  const realMaintenances = useRealMaintenances()
+  const remote = isRemoteBackend()
 
   const [typeFilter, setTypeFilter] = React.useState<string>(ALL_TYPES)
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = React.useState(false)
 
-  const maintenances = vellor.maintenancesOfComputer(computerId)
+  const maintenances = remote
+    ? realMaintenances.maintenances.filter((m) => m.computerId === computerId)
+    : vellor.maintenancesOfComputer(computerId)
 
   const filtered = React.useMemo(
     () =>
