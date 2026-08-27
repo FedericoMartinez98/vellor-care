@@ -300,6 +300,16 @@ export const userSchema = z.object({
   sectorId: optionalText(),
   phone: optionalText(),
   active: z.boolean().default(true),
+  /**
+   * Obrigatória ao criar, opcional ao editar (em branco = mantém a atual).
+   * A obrigatoriedade na criação é validada no formulário, que é quem sabe
+   * se está criando ou editando.
+   */
+  password: z
+    .string()
+    .min(8, 'A senha deve ter ao menos 8 caracteres')
+    .optional()
+    .or(z.literal('')),
 })
 
 export type UserInput = z.infer<typeof userSchema>

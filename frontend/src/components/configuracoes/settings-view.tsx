@@ -59,17 +59,23 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { USER_ROLE_LABELS } from '@/lib/constants'
+import { ApiError, isRemoteBackend } from '@/lib/api'
 import { initials } from '@/lib/format'
+import { useRealAuth } from '@/lib/hooks/use-real-auth'
+import { useRealInventory } from '@/lib/hooks/use-real-inventory'
+import { useRealUsers } from '@/lib/hooks/use-real-users'
 import { userSchema, type UserInput } from '@/lib/schemas'
 import { useVellor } from '@/lib/store'
 import { USER_ROLE, type User } from '@/lib/types'
 
 export function SettingsView() {
+  const mock = useVellor()
+  const realUsers = useRealUsers()
+  const realInventory = useRealInventory()
+  const realAuth = useRealAuth()
+  const remote = isRemoteBackend()
+
   const {
-    ready,
-    users,
-    currentUser,
-    sectors,
     createUser,
     updateUser,
     deleteUser,
@@ -77,11 +83,19 @@ export function SettingsView() {
     resetDatabase,
     exportDatabase,
     importDatabase,
-  } = useVellor()
+  } = mock
+
+  const ready = remote ? realUsers.ready : mock.ready
+  const users = remote ? realUsers.users : mock.users
+  const currentUser = remote ? realAuth.user : mock.currentUser
+  const sectors = remote ? realInventory.sectors : mock.sectors
+  /** Só administrador cria/edita/exclui usuário (o backend também valida). */
+  const canManageUsers = remote ? realAuth.user?.role === 'ADMINISTRADOR' : true
 
   const [userDialogOpen, setUserDialogOpen] = React.useState(false)
   const [resetConfirmOpen, setResetConfirmOpen] = React.useState(false)
   const [editingUser, setEditingUser] = React.useState<User | undefined>()
+  const [isSavingUser, setIsSavingUser] = React.useState(false)
 
   const userForm = useForm<UserInput>({
     resolver: zodResolver(userSchema),
@@ -92,6 +106,7 @@ export function SettingsView() {
       sectorId: '',
       phone: '',
       active: true,
+      password: '',
     },
   })
 
@@ -104,6 +119,7 @@ export function SettingsView() {
         sectorId: editingUser.sectorId ?? '',
         phone: editingUser.phone ?? '',
         active: editingUser.active,
+        password: '',
       })
     } else {
       userForm.reset({
@@ -113,12 +129,46 @@ export function SettingsView() {
         sectorId: '',
         phone: '',
         active: true,
+        password: '',
       })
     }
   }, [editingUser, userForm])
 
-  function onSaveUser(values: UserInput) {
+  async function onSaveUser(values: UserInput) {
+    // Senha é obrigatória na criação: sem ela o backend cairia num padrão
+    // silencioso, deixando o usuário novo com uma senha conhecida.
+    if (!editingUser && (!values.password || values.password.length < 8)) {
+      userForm.setError('password', {
+        message: 'Defina uma senha de ao menos 8 caracteres para o novo usuário.',
+      })
+      return
+    }
+
+    setIsSavingUser(true)
     try {
+      if (remote) {
+        const body = {
+          name: values.name,
+          email: values.email,
+          role: values.role,
+          sectorId: values.sectorId ? values.sectorId : undefined,
+          phone: values.phone ? values.phone : undefined,
+          active: values.active,
+          // Em branco na edição = mantém a senha atual.
+          password: values.password ? values.password : undefined,
+        }
+
+        if (editingUser) {
+          await realUsers.update(editingUser.id, body)
+          toast.success(`Usuário ${values.name} atualizado.`)
+        } else {
+          await realUsers.create(body)
+          toast.success(`Usuário ${values.name} criado.`)
+        }
+        setUserDialogOpen(false)
+        return
+      }
+
       if (editingUser) {
         updateUser(editingUser.id, values)
         toast.success(`Usuário ${values.name} atualizado.`)
@@ -128,7 +178,28 @@ export function SettingsView() {
       }
       setUserDialogOpen(false)
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao salvar usuário.')
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Erro ao salvar usuário.'
+      toast.error(message)
+    } finally {
+      setIsSavingUser(false)
+    }
+  }
+
+  async function onDeleteUser(user: User) {
+    try {
+      if (remote) {
+        await realUsers.remove(user.id)
+      } else {
+        deleteUser(user.id)
+      }
+      toast.success(`Usuário ${user.name} excluído.`)
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Erro ao excluir usuário.')
     }
   }
 
@@ -215,6 +286,8 @@ export function SettingsView() {
             </div>
 
             <Button
+              disabled={!canManageUsers}
+              title={canManageUsers ? undefined : 'Apenas administradores podem criar usuários.'}
               onClick={() => {
                 setEditingUser(undefined)
                 setUserDialogOpen(true)
@@ -252,8 +325,22 @@ export function SettingsView() {
                     </div>
                   </div>
 
-                  <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
-                    {!isCurrent ? (
+                  <div className="mt-4 flex items-center justify-between gap-2 border-t border-border pt-3">
+                    {isCurrent ? (
+                      <span className="text-xs text-muted-foreground">Sessão ativa</span>
+                    ) : remote ? (
+                      // "Alternar para" era um atalho de demonstração que trocava
+                      // o usuário ativo sem senha -- não faz sentido (nem seria
+                      // seguro) com autenticação real.
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={!canManageUsers}
+                        onClick={() => void onDeleteUser(user)}
+                      >
+                        Excluir
+                      </Button>
+                    ) : (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -264,13 +351,13 @@ export function SettingsView() {
                       >
                         Alternar para
                       </Button>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Sessão ativa</span>
                     )}
 
                     <Button
                       variant="outline"
                       size="sm"
+                      disabled={!canManageUsers}
+                      title={canManageUsers ? undefined : 'Apenas administradores podem editar usuários.'}
                       onClick={() => {
                         setEditingUser(user)
                         setUserDialogOpen(true)
@@ -505,11 +592,40 @@ export function SettingsView() {
                 />
               </div>
 
+              <FormField
+                control={userForm.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      {editingUser ? 'Nova senha' : 'Senha de acesso *'}
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        autoComplete="new-password"
+                        placeholder="Mínimo de 8 caracteres"
+                        {...field}
+                        value={field.value ?? ''}
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground">
+                      {editingUser
+                        ? 'Deixe em branco para manter a senha atual.'
+                        : 'A pessoa usará este e-mail e senha para entrar no sistema.'}
+                    </p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <DialogFooter className="gap-2 sm:gap-0">
                 <Button type="button" variant="outline" onClick={() => setUserDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit">Salvar Usuário</Button>
+                <Button type="submit" disabled={isSavingUser}>
+                  {isSavingUser ? 'Salvando...' : 'Salvar Usuário'}
+                </Button>
               </DialogFooter>
             </form>
           </Form>

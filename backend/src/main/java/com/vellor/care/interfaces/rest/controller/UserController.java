@@ -11,6 +11,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -57,15 +59,25 @@ public class UserController {
 
     @PostMapping
     @Operation(summary = "Cadastrar usuário", description = "Cria um novo operador ou técnico de TI.")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     @Transactional
     public ResponseEntity<UserResponse> create(@Valid @RequestBody UserCreateRequest request) {
         if (userRepository.findByEmail(request.email().trim().toLowerCase()).isPresent()) {
             throw new IllegalArgumentException("Já existe um usuário com o e-mail: " + request.email());
         }
 
+        // Sem senha explicita o cadastro e recusado. Antes caia num
+        // "password123" silencioso, criando conta com senha conhecida.
+        if (request.password() == null || request.password().isBlank()) {
+            throw new IllegalArgumentException("Senha é obrigatória para criar um usuário.");
+        }
+        if (request.password().length() < 8) {
+            throw new IllegalArgumentException("A senha deve ter ao menos 8 caracteres.");
+        }
+
         UUID id = UUID.randomUUID();
         Instant now = Instant.now();
-        String pwd = request.password() != null && !request.password().isBlank() ? request.password() : "password123";
+        String pwd = request.password();
 
         User user = new User(
             id,
@@ -91,13 +103,18 @@ public class UserController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Atualizar usuário", description = "Altera os dados cadastrais ou perfil do usuário.")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     @Transactional
     public ResponseEntity<UserResponse> update(@PathVariable UUID id, @Valid @RequestBody UserCreateRequest request) {
         User existing = userRepository.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + id));
 
+        // Senha em branco mantem a atual; se vier preenchida, precisa ser valida.
         String pwdHash = existing.passwordHash();
         if (request.password() != null && !request.password().isBlank()) {
+            if (request.password().length() < 8) {
+                throw new IllegalArgumentException("A senha deve ter ao menos 8 caracteres.");
+            }
             pwdHash = passwordEncoder.encode(request.password());
         }
 
@@ -125,7 +142,16 @@ public class UserController {
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Excluir usuário", description = "Remove o cadastro de um usuário.")
-    public ResponseEntity<Void> delete(@PathVariable UUID id) {
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @Transactional
+    public ResponseEntity<Void> delete(@PathVariable UUID id, @AuthenticationPrincipal String email) {
+        // Evita o administrador se excluir e deixar o sistema sem acesso.
+        userRepository.findByEmail(email)
+            .filter(current -> current.id().equals(id))
+            .ifPresent(current -> {
+                throw new IllegalArgumentException("Você não pode excluir o próprio usuário.");
+            });
+
         userRepository.deleteById(id);
         return ResponseEntity.noContent().build();
     }

@@ -3,6 +3,7 @@ package com.vellor.care.interfaces.rest.error;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -26,6 +27,21 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleIllegalState(IllegalStateException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
             .body(new ErrorResponse(HttpStatus.CONFLICT.value(), ex.getMessage(), Instant.now()));
+    }
+
+    /**
+     * Sem isso, um @PreAuthorize barrando a requisicao caia no handler
+     * generico e virava 500 "Access Denied" -- o front nao consegue
+     * distinguir falta de permissao de servidor com problema.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+            .body(new ErrorResponse(
+                HttpStatus.FORBIDDEN.value(),
+                "Você não tem permissão para executar esta ação.",
+                Instant.now()
+            ));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
