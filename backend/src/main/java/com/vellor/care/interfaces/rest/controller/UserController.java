@@ -4,6 +4,7 @@ import com.vellor.care.domain.model.User;
 import com.vellor.care.domain.model.UserRole;
 import com.vellor.care.domain.repository.UserRepository;
 import com.vellor.care.interfaces.rest.dto.request.UserCreateRequest;
+import com.vellor.care.interfaces.rest.dto.response.UserResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -11,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -37,24 +39,26 @@ public class UserController {
 
     @GetMapping
     @Operation(summary = "Listar usuários", description = "Retorna os usuários cadastrados com filtro opcional por papel.")
-    public ResponseEntity<List<User>> list(@RequestParam(required = false) UserRole role) {
-        if (role != null) {
-            return ResponseEntity.ok(userRepository.findByRole(role));
-        }
-        return ResponseEntity.ok(userRepository.findAll());
+    @Transactional(readOnly = true)
+    public ResponseEntity<List<UserResponse>> list(@RequestParam(required = false) UserRole role) {
+        List<User> users = role != null ? userRepository.findByRole(role) : userRepository.findAll();
+        return ResponseEntity.ok(users.stream().map(UserResponse::from).toList());
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Consultar usuário por ID", description = "Retorna detalhes de um usuário.")
-    public ResponseEntity<User> getById(@PathVariable UUID id) {
+    @Transactional(readOnly = true)
+    public ResponseEntity<UserResponse> getById(@PathVariable UUID id) {
         return userRepository.findById(id)
+            .map(UserResponse::from)
             .map(ResponseEntity::ok)
             .orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping
     @Operation(summary = "Cadastrar usuário", description = "Cria um novo operador ou técnico de TI.")
-    public ResponseEntity<User> create(@Valid @RequestBody UserCreateRequest request) {
+    @Transactional
+    public ResponseEntity<UserResponse> create(@Valid @RequestBody UserCreateRequest request) {
         if (userRepository.findByEmail(request.email().trim().toLowerCase()).isPresent()) {
             throw new IllegalArgumentException("Já existe um usuário com o e-mail: " + request.email());
         }
@@ -82,12 +86,13 @@ public class UserController {
             now
         );
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(userRepository.save(user));
+        return ResponseEntity.status(HttpStatus.CREATED).body(UserResponse.from(userRepository.save(user)));
     }
 
     @PutMapping("/{id}")
     @Operation(summary = "Atualizar usuário", description = "Altera os dados cadastrais ou perfil do usuário.")
-    public ResponseEntity<User> update(@PathVariable UUID id, @Valid @RequestBody UserCreateRequest request) {
+    @Transactional
+    public ResponseEntity<UserResponse> update(@PathVariable UUID id, @Valid @RequestBody UserCreateRequest request) {
         User existing = userRepository.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Usuário não encontrado: " + id));
 
@@ -115,7 +120,7 @@ public class UserController {
             Instant.now()
         );
 
-        return ResponseEntity.ok(userRepository.save(updated));
+        return ResponseEntity.ok(UserResponse.from(userRepository.save(updated)));
     }
 
     @DeleteMapping("/{id}")

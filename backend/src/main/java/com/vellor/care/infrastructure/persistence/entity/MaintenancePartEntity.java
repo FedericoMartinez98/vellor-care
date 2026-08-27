@@ -43,6 +43,11 @@ public class MaintenancePartEntity {
     @JoinColumn(name = "part_id", insertable = false, updatable = false)
     private InventoryPartEntity part;
 
+    // Nome congelado no momento do uso. Coluna NOT NULL que nao estava
+    // mapeada -- o INSERT saia sem ela e concluir manutencao com peca falhava.
+    @Column(name = "part_name", nullable = false, length = 160)
+    private String partName;
+
     @Column(name = "quantity", nullable = false)
     private int quantity;
 

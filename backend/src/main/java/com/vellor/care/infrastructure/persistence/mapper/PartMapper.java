@@ -52,8 +52,15 @@ public class PartMapper {
 
     public InventoryMovement toDomain(InventoryMovementEntity entity) {
         if (entity == null) return null;
-        String partName = entity.getPart() != null ? entity.getPart().getName() : "";
-        String userName = entity.getUser() != null ? entity.getUser().getName() : "";
+        // Prefere as colunas desnormalizadas (o historico congela o nome no
+        // momento do movimento); cai para a associacao lazy so em registro
+        // antigo, gravado antes dessas colunas serem mapeadas.
+        String partName = entity.getPartName() != null
+            ? entity.getPartName()
+            : (entity.getPart() != null ? entity.getPart().getName() : "");
+        String userName = entity.getUserName() != null
+            ? entity.getUserName()
+            : (entity.getUser() != null ? entity.getUser().getName() : "");
 
         return new InventoryMovement(
             entity.getId(),
@@ -63,7 +70,7 @@ public class PartMapper {
             entity.getQuantity(),
             entity.getBalanceAfter(),
             entity.getMaintenanceId(),
-            null,
+            entity.getComputerAssetTag(),
             entity.getUserId(),
             userName,
             entity.getReason(),
@@ -76,11 +83,14 @@ public class PartMapper {
         return InventoryMovementEntity.builder()
             .id(domain.id())
             .partId(domain.partId())
+            .partName(domain.partName())
             .type(domain.type())
             .quantity(domain.quantity())
             .balanceAfter(domain.balanceAfter())
             .maintenanceId(domain.maintenanceId())
+            .computerAssetTag(domain.computerAssetTag())
             .userId(domain.userId())
+            .userName(domain.userName())
             .reason(domain.reason())
             .createdAt(domain.createdAt() != null ? domain.createdAt() : Instant.now())
             .build();

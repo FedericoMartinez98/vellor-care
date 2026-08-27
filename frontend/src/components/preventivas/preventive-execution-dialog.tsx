@@ -46,8 +46,12 @@ import {
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { ApiError, isRemoteBackend } from '@/lib/api'
+import { toMaintenanceCompleteBody } from '@/lib/api/maintenance-mappers'
 import { CHECKLIST_DEFINITIONS } from '@/lib/constants'
 import { formatDuration } from '@/lib/format'
+import { useRealAuth } from '@/lib/hooks/use-real-auth'
+import { useRealMaintenances } from '@/lib/hooks/use-real-maintenances'
 import { checklistFormSchema, type ChecklistFormInput } from '@/lib/schemas'
 import { useVellor } from '@/lib/store'
 import type { ChecklistGroup, Computer, Maintenance, MaintenanceChecklistItem } from '@/lib/types'
@@ -77,8 +81,16 @@ export function PreventiveExecutionDialog({
   onSuccess,
 }: PreventiveExecutionDialogProps) {
   const { completeMaintenance, createMaintenance } = useVellor()
+  const realMaintenances = useRealMaintenances()
+  const realAuth = useRealAuth()
+  const remote = isRemoteBackend()
   const [timerSeconds, setTimerSeconds] = React.useState<number>(0)
   const [timerActive, setTimerActive] = React.useState<boolean>(true)
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
+  // O cronômetro só preenche a duração enquanto o técnico não digitar um valor
+  // próprio -- antes ele sobrescrevia o campo a cada segundo, tornando
+  // impossível corrigir o tempo manualmente.
+  const durationTouchedRef = React.useRef(false)
 
   // Cronômetro da manutenção
   React.useEffect(() => {
@@ -130,7 +142,7 @@ export function PreventiveExecutionDialog({
 
   // Sincroniza o cronômetro no form
   React.useEffect(() => {
-    if (timerSeconds > 0) {
+    if (timerSeconds > 0 && !durationTouchedRef.current) {
       const minutes = Math.max(1, Math.round(timerSeconds / 60))
       form.setValue('durationMinutes', minutes)
     }
@@ -141,6 +153,7 @@ export function PreventiveExecutionDialog({
     if (open) {
       setTimerSeconds(0)
       setTimerActive(true)
+      durationTouchedRef.current = false
       form.reset({
         items: initialItems,
         durationMinutes: 45,
@@ -174,19 +187,85 @@ export function PreventiveExecutionDialog({
   }
 
   function handleMarkAllDone() {
-    const updated = watchedItems.map((item) => {
-      let val = item.value
-      if (item.key === 'espaco_livre_ssd' && (val === undefined || Number.isNaN(val))) val = 45
-      if (item.key === 'temperatura_cpu' && (val === undefined || Number.isNaN(val))) val = 48
-      if (item.key === 'temperatura_ssd' && (val === undefined || Number.isNaN(val))) val = 39
-      return { ...item, done: true, value: val }
-    })
+    // Marca só o "feito" -- NÃO preenche os valores medidos. Antes isso
+    // inventava medições fixas (45% de disco, 48°C de CPU, 39°C de SSD) que
+    // iam para o histórico e os relatórios como se tivessem sido medidas de
+    // verdade. Com o registro persistindo no banco real, isso viraria dado
+    // falso na ficha do equipamento.
+    const updated = watchedItems.map((item) => ({ ...item, done: true }))
     form.setValue('items', updated)
+
+    const pendingMeasurements = updated.filter(
+      (item) =>
+        item.group === 'MEDICOES' && (item.value === undefined || Number.isNaN(item.value)),
+    ).length
+
+    if (pendingMeasurements > 0) {
+      toast.warning(
+        `Itens marcados. Informe ${pendingMeasurements} valor(es) medido(s) na aba Checklist antes de concluir.`,
+      )
+      return
+    }
     toast.success('Todos os itens foram marcados como concluídos.')
   }
 
-  function onSubmit(values: ChecklistFormInput) {
+  async function onSubmit(values: ChecklistFormInput) {
+    const domainChecklist: MaintenanceChecklistItem[] = values.items.map((it) => ({
+      key: it.key,
+      label: it.label,
+      group: it.group as ChecklistGroup,
+      done: it.done,
+      value: it.value,
+      note: it.note,
+    }))
+
+    setIsSubmitting(true)
     try {
+      if (remote) {
+        // O técnico é quem está logado -- antes isso era um UUID de mock fixo
+        // no código, que o backend real rejeitaria ("Técnico não encontrado").
+        const technician = realAuth.user
+        if (!technician) {
+          toast.error('Sessão expirada. Entre novamente para registrar a manutenção.')
+          return
+        }
+
+        let targetId = maintenance?.id
+        if (!targetId) {
+          if (!computer) {
+            toast.error('Selecione o equipamento da manutenção.')
+            return
+          }
+          const created = await realMaintenances.create({
+            computerId: computer.id,
+            technicianId: technician.id,
+            type: 'PREVENTIVA',
+            priority: 'MEDIA',
+            scheduledFor: new Date().toISOString().slice(0, 10),
+            notes: values.notes,
+          })
+          targetId = created.id
+        }
+
+        await realMaintenances.complete(
+          targetId,
+          toMaintenanceCompleteBody({
+            checklist: domainChecklist,
+            parts: values.parts,
+            photosBefore: values.photosBefore,
+            photosAfter: values.photosAfter,
+            durationMinutes: values.durationMinutes,
+            notes: values.notes,
+            signatureDataUrl: values.signatureDataUrl,
+          }),
+        )
+
+        toast.success('Manutenção preventiva concluída com sucesso!')
+        onSuccess?.()
+        onOpenChange(false)
+        return
+      }
+
       let targetMaintenanceId = maintenance?.id
 
       if (!targetMaintenanceId && computer) {
@@ -205,15 +284,6 @@ export function PreventiveExecutionDialog({
         throw new Error('Identificação da manutenção não encontrada.')
       }
 
-      const domainChecklist: MaintenanceChecklistItem[] = values.items.map((it) => ({
-        key: it.key,
-        label: it.label,
-        group: it.group as ChecklistGroup,
-        done: it.done,
-        value: it.value,
-        note: it.note,
-      }))
-
       completeMaintenance(targetMaintenanceId, {
         checklist: domainChecklist,
         durationMinutes: values.durationMinutes,
@@ -228,7 +298,15 @@ export function PreventiveExecutionDialog({
       onSuccess?.()
       onOpenChange(false)
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Erro ao concluir a manutenção.')
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Erro ao concluir a manutenção.'
+      toast.error(message)
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -382,7 +460,17 @@ export function PreventiveExecutionDialog({
                         <FormItem>
                           <FormLabel>Tempo Gasto (minutos) *</FormLabel>
                           <FormControl>
-                            <Input type="number" min={1} max={1440} {...field} />
+                            <Input
+                              type="number"
+                              min={1}
+                              max={1440}
+                              {...field}
+                              onChange={(event) => {
+                                // A partir daqui o cronômetro para de sobrescrever.
+                                durationTouchedRef.current = true
+                                field.onChange(event)
+                              }}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -436,9 +524,9 @@ export function PreventiveExecutionDialog({
               >
                 Cancelar
               </Button>
-              <Button type="submit">
+              <Button type="submit" disabled={isSubmitting}>
                 <CheckCircle2 className="mr-2 size-4" />
-                Concluir Preventiva
+                {isSubmitting ? 'Concluindo...' : 'Concluir Preventiva'}
               </Button>
             </DialogFooter>
           </form>

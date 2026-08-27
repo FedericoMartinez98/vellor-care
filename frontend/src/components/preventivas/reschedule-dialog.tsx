@@ -4,6 +4,7 @@ import { useEffect, useMemo } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { CalendarClock } from 'lucide-react'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -26,8 +27,10 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { ApiError, isRemoteBackend } from '@/lib/api'
 import { MAINTENANCE_TYPE_LABELS } from '@/lib/constants'
 import { formatDate, toISODate } from '@/lib/format'
+import { useRealMaintenances } from '@/lib/hooks/use-real-maintenances'
 import { rescheduleSchema, type RescheduleInput } from '@/lib/schemas'
 import { useVellor } from '@/lib/store'
 import type { Maintenance } from '@/lib/types'
@@ -36,11 +39,19 @@ export interface RescheduleDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   maintenance: Maintenance
+  onSuccess?: () => void
 }
 
 /** Diálogo enxuto de reagendamento: resumo da ordem, nova data e motivo opcional. */
-export function RescheduleDialog({ open, onOpenChange, maintenance }: RescheduleDialogProps) {
+export function RescheduleDialog({
+  open,
+  onOpenChange,
+  maintenance,
+  onSuccess,
+}: RescheduleDialogProps) {
   const vellor = useVellor()
+  const realMaintenances = useRealMaintenances()
+  const remote = isRemoteBackend()
   const today = useMemo(() => toISODate(new Date()), [])
 
   const form = useForm<RescheduleInput>({
@@ -62,8 +73,23 @@ export function RescheduleDialog({ open, onOpenChange, maintenance }: Reschedule
     })
   }, [open, maintenance.id, maintenance.scheduledFor, form])
 
-  function handleSubmit(values: RescheduleInput) {
+  async function handleSubmit(values: RescheduleInput) {
+    if (remote) {
+      try {
+        await realMaintenances.reschedule(values.maintenanceId, values.scheduledFor)
+        toast.success(`Preventiva reagendada para ${formatDate(values.scheduledFor)}.`)
+        onSuccess?.()
+        onOpenChange(false)
+      } catch (err) {
+        toast.error(
+          err instanceof ApiError ? err.message : 'Não foi possível reagendar a preventiva.',
+        )
+      }
+      return
+    }
+
     vellor.rescheduleMaintenance(values.maintenanceId, values.scheduledFor)
+    onSuccess?.()
     onOpenChange(false)
   }
 

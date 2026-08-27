@@ -40,6 +40,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { isRemoteBackend } from '@/lib/api'
 import { formatDate, formatRelative } from '@/lib/format'
 import { useRealInventory } from '@/lib/hooks/use-real-inventory'
+import { useRealMaintenances } from '@/lib/hooks/use-real-maintenances'
 import { effectiveMaintenanceStatus, preventiveHealthOf } from '@/lib/status'
 import { useVellor } from '@/lib/store'
 import type { Computer, Maintenance } from '@/lib/types'
@@ -49,15 +50,13 @@ export function PreventivesView() {
   const searchParams = useSearchParams()
   const mock = useVellor()
   const real = useRealInventory()
+  const realMaintenances = useRealMaintenances()
   const remote = isRemoteBackend()
 
-  const ready = remote ? real.ready : mock.ready
+  const ready = remote ? real.ready && realMaintenances.ready : mock.ready
   const computers = remote ? real.computers : mock.computers
   const sectors = remote ? real.sectors : mock.sectors
-  // Ordens de Serviço (criar/executar/concluir preventiva) ainda não foram
-  // religadas ao backend real -- ficam mock mesmo no modo remoto por
-  // enquanto, e as ações que dependem delas são bloqueadas mais abaixo.
-  const { maintenances } = mock
+  const maintenances = remote ? realMaintenances.maintenances : mock.maintenances
   const getComputer = React.useCallback(
     (id: string) => (remote ? real.computers.find((c) => c.id === id) : mock.getComputer(id)),
     [remote, real.computers, mock],
@@ -70,14 +69,7 @@ export function PreventivesView() {
   const [selectedMaintenance, setSelectedMaintenance] = React.useState<Maintenance | undefined>()
   const [selectedComputer, setSelectedComputer] = React.useState<Computer | undefined>()
 
-  // Criar/iniciar/concluir Ordem de Serviço ainda grava só no mock (ver nota
-  // acima) -- abrir o diálogo de execução aqui daria a impressão de que
-  // funciona de verdade no modo remoto, quando na verdade não persiste nada.
   function openExecution() {
-    if (remote) {
-      toast.error('Execução de preventiva ainda não está ligada ao backend real.')
-      return false
-    }
     setExecutionOpen(true)
     return true
   }
@@ -381,11 +373,6 @@ export function PreventivesView() {
           </TabsContent>
 
           <TabsContent value="ordens" className="m-0 focus-visible:outline-none">
-            {remote ? (
-              <p className="mb-3 text-xs text-muted-foreground">
-                Dados de demonstração — Ordens de Serviço ainda não estão ligadas ao backend real.
-              </p>
-            ) : null}
             <DataTable<Maintenance, unknown>
               columns={osColumns}
               data={openMaintenances}
@@ -408,6 +395,16 @@ export function PreventivesView() {
         }}
         maintenance={selectedMaintenance}
         computer={selectedComputer}
+        onSuccess={() => {
+          // useRealMaintenances()/useRealInventory() não são stores globais --
+          // cada componente tem sua própria cópia. Sem isto, a lista e os
+          // cards desta tela ficariam com o dado anterior até um F5 (mesmo
+          // bug que já apareceu no formulário de equipamento).
+          if (remote) {
+            void realMaintenances.refresh()
+            void real.refresh()
+          }
+        }}
       />
 
       {/* Dialog de Reagendamento */}
@@ -416,6 +413,9 @@ export function PreventivesView() {
           open={rescheduleOpen}
           onOpenChange={setRescheduleOpen}
           maintenance={selectedMaintenance}
+          onSuccess={() => {
+            if (remote) void realMaintenances.refresh()
+          }}
         />
       ) : null}
 

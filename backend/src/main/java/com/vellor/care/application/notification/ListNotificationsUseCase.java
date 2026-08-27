@@ -4,12 +4,15 @@ import com.vellor.care.domain.model.AppNotification;
 import com.vellor.care.domain.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
 
+/** Transacional: o mapper toca associacoes lazy (usuario alvo e permissoes). */
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class ListNotificationsUseCase {
 
     private final NotificationRepository notificationRepository;

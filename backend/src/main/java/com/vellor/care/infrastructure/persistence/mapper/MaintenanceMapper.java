@@ -23,7 +23,12 @@ public class MaintenanceMapper {
 
         String assetTag = entity.getComputer() != null ? entity.getComputer().getAssetTag() : "";
         String hostname = entity.getComputer() != null ? entity.getComputer().getHostname() : "";
-        var sectorId = entity.getComputer() != null ? entity.getComputer().getSectorId() : null;
+        // Le da propria coluna: a associacao lazy `computer` nao vem preenchida
+        // em resposta de escrita (o toEntity nao a popula), entao derivar dela
+        // devolvia sectorId nulo depois de um POST/PUT.
+        var sectorId = entity.getSectorId() != null
+            ? entity.getSectorId()
+            : (entity.getComputer() != null ? entity.getComputer().getSectorId() : null);
         String techName = entity.getTechnician() != null ? entity.getTechnician().getName() : "";
 
         List<MaintenanceChecklistItem> items = entity.getChecklistItems() != null
@@ -34,7 +39,16 @@ public class MaintenanceMapper {
 
         List<MaintenancePartUsage> parts = entity.getParts() != null
             ? entity.getParts().stream()
-                .map(p -> new MaintenancePartUsage(p.getId(), p.getPartId(), p.getPart() != null ? p.getPart().getName() : "", p.getQuantity(), p.getUnitCost()))
+                // Prefere a coluna desnormalizada; a associacao lazy `part`
+                // nao vem preenchida em resposta de escrita.
+                .map(p -> new MaintenancePartUsage(
+                    p.getId(),
+                    p.getPartId(),
+                    p.getPartName() != null
+                        ? p.getPartName()
+                        : (p.getPart() != null ? p.getPart().getName() : ""),
+                    p.getQuantity(),
+                    p.getUnitCost()))
                 .toList()
             : Collections.emptyList();
 
@@ -76,6 +90,7 @@ public class MaintenanceMapper {
         MaintenanceEntity entity = MaintenanceEntity.builder()
             .id(domain.id())
             .computerId(domain.computerId())
+            .sectorId(domain.sectorId())
             .technicianId(domain.technicianId())
             .type(domain.type())
             .status(domain.status())
@@ -115,6 +130,7 @@ public class MaintenanceMapper {
                     .maintenanceId(domain.id())
                     .maintenance(entity)
                     .partId(p.partId())
+                    .partName(p.partName())
                     .quantity(p.quantity())
                     .unitCost(p.unitCost())
                     .build())

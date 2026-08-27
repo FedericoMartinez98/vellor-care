@@ -39,7 +39,9 @@ public class MaintenancePhotoEntity {
     @JoinColumn(name = "maintenance_id", insertable = false, updatable = false)
     private MaintenanceEntity maintenance;
 
-    @Column(name = "url", nullable = false, length = 500)
+    // TEXT (nao VARCHAR): a foto chega como data-URL base64, igual a assinatura
+    // do tecnico em MaintenanceEntity.signatureDataUrl.
+    @Column(name = "url", nullable = false, columnDefinition = "TEXT")
     private String url;
 
     @Column(name = "caption", length = 255)

@@ -46,6 +46,13 @@ public class MaintenanceEntity {
     @JoinColumn(name = "computer_id", insertable = false, updatable = false)
     private ComputerEntity computer;
 
+    // Setor desnormalizado do computador. A coluna e NOT NULL e tem indice
+    // proprio (idx_maintenances_sector / _sector_status), mas nao estava
+    // mapeada aqui -- o INSERT saia sem ela e toda criacao de manutencao
+    // falhava com violacao de not-null.
+    @Column(name = "sector_id", nullable = false)
+    private UUID sectorId;
+
     @Column(name = "technician_id", nullable = false)
     private UUID technicianId;
 

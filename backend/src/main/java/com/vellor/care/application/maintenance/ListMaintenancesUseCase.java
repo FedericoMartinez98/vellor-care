@@ -6,13 +6,21 @@ import com.vellor.care.domain.model.MaintenanceType;
 import com.vellor.care.domain.repository.MaintenanceRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Leitura de manutencoes. Precisa ser transacional: o MaintenanceMapper deriva
+ * assetTag/hostname/technicianName das associacoes lazy `computer`/`technician`,
+ * e fora de uma sessao Hibernate aberta isso estoura
+ * LazyInitializationException (500) -- era o que acontecia em GET /maintenances.
+ */
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class ListMaintenancesUseCase {
 
     private final MaintenanceRepository maintenanceRepository;

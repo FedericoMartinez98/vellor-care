@@ -8,13 +8,23 @@ import com.vellor.care.infrastructure.persistence.mapper.UserMapper;
 import com.vellor.care.infrastructure.persistence.springdata.JpaUserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * Transacional na classe de proposito: o UserMapper sempre desreferencia as
+ * associacoes lazy `permissions` e `sector`, entao QUALQUER leitura de usuario
+ * fora de uma sessao Hibernate estoura LazyInitializationException (500).
+ * Isso ja havia derrubado GET /auth/me, GET /users e GET /notifications --
+ * garantir a sessao aqui resolve para todos os chamadores, atuais e futuros,
+ * em vez de anotar cada controller/use case um por um.
+ */
 @Component
 @RequiredArgsConstructor
+@Transactional
 public class UserRepositoryAdapter implements UserRepository {
 
     private final JpaUserRepository jpaUserRepository;

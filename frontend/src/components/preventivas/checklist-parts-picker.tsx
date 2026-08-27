@@ -25,7 +25,9 @@ import {
 import { EmptyState } from '@/components/ui/empty-state'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { PART_CATEGORY_LABELS } from '@/lib/constants'
+import { isRemoteBackend } from '@/lib/api'
 import { formatCurrency, formatNumber } from '@/lib/format'
+import { useRealParts } from '@/lib/hooks/use-real-parts'
 import type { ChecklistPartUsageInput } from '@/lib/schemas'
 import { useVellor } from '@/lib/store'
 import type { InventoryPart } from '@/lib/types'
@@ -53,17 +55,30 @@ interface UsageRow {
 
 function ChecklistPartsPicker({ value, onChange, disabled = false }: ChecklistPartsPickerProps) {
   const vellor = useVellor()
+  const realParts = useRealParts()
+  const remote = isRemoteBackend()
   const [open, setOpen] = React.useState(false)
 
+  // No modo remoto o catálogo tem que vir do backend: o id da peça viaja no
+  // payload de conclusão e o backend rejeita a manutenção inteira se ele não
+  // existir no estoque real.
+  const sourceParts = remote ? realParts.parts : vellor.parts
+
   const catalog = React.useMemo(
-    () => [...vellor.parts].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
-    [vellor.parts],
+    () => [...sourceParts].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')),
+    [sourceParts],
+  )
+
+  const getPart = React.useCallback(
+    (partId: string): InventoryPart | undefined =>
+      remote ? realParts.parts.find((part) => part.id === partId) : vellor.getPart(partId),
+    [remote, realParts.parts, vellor],
   )
 
   const rows = React.useMemo<UsageRow[]>(
     () =>
       value.map((usage) => {
-        const part = vellor.getPart(usage.partId)
+        const part = getPart(usage.partId)
         const available = part?.quantity ?? 0
         const balanceAfter = Math.max(0, available - usage.quantity)
 
@@ -80,7 +95,7 @@ function ChecklistPartsPicker({ value, onChange, disabled = false }: ChecklistPa
           shortage: usage.quantity > available,
         }
       }),
-    [value, vellor],
+    [value, getPart],
   )
 
   const total = rows.reduce((sum, row) => sum + row.cost, 0)
@@ -98,7 +113,7 @@ function ChecklistPartsPicker({ value, onChange, disabled = false }: ChecklistPa
     onChange(
       value.map((usage) => {
         if (usage.partId !== partId) return usage
-        const available = vellor.getPart(partId)?.quantity ?? usage.quantity
+        const available = getPart(partId)?.quantity ?? usage.quantity
         const next = Math.min(Math.max(1, usage.quantity + delta), Math.max(1, available))
         return { ...usage, quantity: next }
       }),
