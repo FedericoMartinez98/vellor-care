@@ -40,12 +40,19 @@ import {
 } from '@/lib/constants'
 import { formatBytesGb, formatDate, formatPercent, formatRelative } from '@/lib/format'
 import { computerIsCritical, criticalReasons } from '@/lib/status'
+import { isRemoteBackend } from '@/lib/api'
+import { useRealInventory } from '@/lib/hooks/use-real-inventory'
 import { useVellor } from '@/lib/store'
 import type { Computer } from '@/lib/types'
 
 export function HealthDashboardView() {
   const router = useRouter()
-  const { ready, computers, sectors } = useVellor()
+  const mock = useVellor()
+  const real = useRealInventory()
+  const remote = isRemoteBackend()
+  const ready = remote ? real.ready : mock.ready
+  const computers = remote ? real.computers : mock.computers
+  const sectors = remote ? real.sectors : mock.sectors
 
   // Análise global de saúde
   const stats = React.useMemo(() => {

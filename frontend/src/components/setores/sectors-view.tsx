@@ -39,12 +39,21 @@ import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatNumber, formatPercent } from '@/lib/format'
 import { preventiveHealthOf } from '@/lib/status'
+import { isRemoteBackend } from '@/lib/api'
+import { useRealInventory } from '@/lib/hooks/use-real-inventory'
 import { useVellor } from '@/lib/store'
 import type { Sector } from '@/lib/types'
 
 export function SectorsView() {
   const router = useRouter()
-  const { ready, sectors, computers, deleteSector } = useVellor()
+  const mock = useVellor()
+  const real = useRealInventory()
+  const remote = isRemoteBackend()
+
+  const { deleteSector } = mock
+  const ready = remote ? real.ready : mock.ready
+  const sectors = remote ? real.sectors : mock.sectors
+  const computers = remote ? real.computers : mock.computers
 
   const [formOpen, setFormOpen] = React.useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false)

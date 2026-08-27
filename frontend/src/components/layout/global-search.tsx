@@ -22,6 +22,8 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Kbd } from '@/components/ui/kbd'
+import { isRemoteBackend } from '@/lib/api'
+import { useRealDatabase } from '@/lib/hooks/use-real-database'
 import { buildGlobalSearch, useVellor } from '@/lib/store'
 import type { GlobalSearchResult } from '@/lib/types'
 import { cn } from '@/lib/utils'
@@ -59,7 +61,9 @@ const DEBOUNCE_MS = 120
 
 export function GlobalSearch({ className }: { className?: string }) {
   const router = useRouter()
-  const { db } = useVellor()
+  const mock = useVellor()
+  const real = useRealDatabase()
+  const db = isRemoteBackend() ? real.db : mock.db
 
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')

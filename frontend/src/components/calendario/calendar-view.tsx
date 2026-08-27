@@ -50,12 +50,26 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { MAINTENANCE_TYPE_LABELS } from '@/lib/constants'
 import { parseISODate } from '@/lib/format'
 import { effectiveMaintenanceStatus } from '@/lib/status'
+import { isRemoteBackend } from '@/lib/api'
+import { useRealInventory } from '@/lib/hooks/use-real-inventory'
+import { useRealMaintenances } from '@/lib/hooks/use-real-maintenances'
 import { useVellor } from '@/lib/store'
 import type { Maintenance } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 export function CalendarView() {
-  const { ready, maintenances, sectors, getComputer } = useVellor()
+  const mock = useVellor()
+  const realInv = useRealInventory()
+  const realMnt = useRealMaintenances()
+  const remote = isRemoteBackend()
+
+  const ready = remote ? realInv.ready && realMnt.ready : mock.ready
+  const maintenances = remote ? realMnt.maintenances : mock.maintenances
+  const sectors = remote ? realInv.sectors : mock.sectors
+  const getComputer = React.useCallback(
+    (id: string) => (remote ? realInv.computers.find((c) => c.id === id) : mock.getComputer(id)),
+    [remote, realInv.computers, mock],
+  )
   const [currentMonth, setCurrentMonth] = React.useState<Date>(new Date())
   const [selectedDate, setSelectedDate] = React.useState<Date>(new Date())
   const [sectorFilter, setSectorFilter] = React.useState<string>('ALL')
@@ -332,29 +346,39 @@ export function CalendarView() {
                       </p>
                     </div>
 
-                    <div className="mt-2 flex items-center justify-end gap-2 border-t border-border pt-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedMaintenance(m)
-                          setRescheduleOpen(true)
-                        }}
-                      >
-                        Reagendar
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => {
-                          setSelectedMaintenance(m)
-                          const comp = getComputer(m.computerId)
-                          setExecutionOpen(true)
-                        }}
-                      >
-                        <Wrench className="mr-1 size-3" />
-                        Executar
-                      </Button>
-                    </div>
+                    {/* Ordem finalizada não aceita reagendar nem executar de
+                        novo (o backend recusa com 409). Antes os botões
+                        apareciam de qualquer jeito e o clique só dava erro. */}
+                    {m.status === 'CONCLUIDA' || m.status === 'CANCELADA' ? (
+                      <div className="mt-2 border-t border-border pt-2 text-right text-xs text-muted-foreground">
+                        {m.status === 'CONCLUIDA'
+                          ? 'Preventiva concluída.'
+                          : 'Ordem cancelada.'}
+                      </div>
+                    ) : (
+                      <div className="mt-2 flex items-center justify-end gap-2 border-t border-border pt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedMaintenance(m)
+                            setRescheduleOpen(true)
+                          }}
+                        >
+                          Reagendar
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setSelectedMaintenance(m)
+                            setExecutionOpen(true)
+                          }}
+                        >
+                          <Wrench className="mr-1 size-3" />
+                          Executar
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )
               })
@@ -369,6 +393,12 @@ export function CalendarView() {
         onOpenChange={setExecutionOpen}
         maintenance={selectedMaintenance}
         computer={selectedMaintenance ? getComputer(selectedMaintenance.computerId) : undefined}
+        onSuccess={() => {
+          if (remote) {
+            void realMnt.refresh()
+            void realInv.refresh()
+          }
+        }}
       />
 
       {selectedMaintenance ? (
@@ -376,6 +406,9 @@ export function CalendarView() {
           open={rescheduleOpen}
           onOpenChange={setRescheduleOpen}
           maintenance={selectedMaintenance}
+          onSuccess={() => {
+            if (remote) void realMnt.refresh()
+          }}
         />
       ) : null}
 

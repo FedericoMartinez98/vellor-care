@@ -11,14 +11,27 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { SEVERITY_TONE } from '@/lib/constants'
 import { formatRelative } from '@/lib/format'
+import { isRemoteBackend } from '@/lib/api'
+import { useRealNotifications } from '@/lib/hooks/use-real-notifications'
 import { useVellor } from '@/lib/store'
 import type { AppNotification } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 export function NotificationsMenu() {
   const router = useRouter()
-  const { ready, notifications, unreadCount, markNotificationRead, markAllNotificationsRead } =
-    useVellor()
+  const mock = useVellor()
+  const real = useRealNotifications()
+  const remote = isRemoteBackend()
+
+  const ready = remote ? real.ready : mock.ready
+  const notifications = remote ? real.notifications : mock.notifications
+  const unreadCount = remote ? real.unreadCount : mock.unreadCount
+  const markNotificationRead = remote
+    ? (id: string) => { void real.markRead(id) }
+    : mock.markNotificationRead
+  const markAllNotificationsRead = remote
+    ? () => { void real.markAllRead() }
+    : mock.markAllNotificationsRead
 
   const [open, setOpen] = useState(false)
 

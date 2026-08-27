@@ -17,7 +17,7 @@
 import * as React from 'react'
 
 import { apiFetch, ApiError, endpoints, isRemoteBackend } from '@/lib/api'
-import type { InventoryPart } from '@/lib/types'
+import type { InventoryMovement, InventoryPart } from '@/lib/types'
 
 /** Shape de `InventoryPart` como o backend devolve. */
 interface ApiPart {
@@ -53,9 +53,43 @@ function mapApiPart(api: ApiPart): InventoryPart {
   }
 }
 
+/** Shape de `InventoryMovement` como o backend devolve. */
+interface ApiMovement {
+  id: string
+  partId: string
+  partName?: string | null
+  type: InventoryMovement['type']
+  quantity: number
+  balanceAfter: number
+  maintenanceId?: string | null
+  computerAssetTag?: string | null
+  userId?: string | null
+  userName?: string | null
+  reason?: string | null
+  createdAt: string
+}
+
+function mapApiMovement(api: ApiMovement): InventoryMovement {
+  return {
+    id: api.id,
+    partId: api.partId,
+    partName: api.partName ?? '',
+    type: api.type,
+    quantity: api.quantity,
+    balanceAfter: api.balanceAfter,
+    maintenanceId: api.maintenanceId ?? undefined,
+    computerAssetTag: api.computerAssetTag ?? undefined,
+    userId: api.userId ?? '',
+    userName: api.userName ?? '',
+    reason: api.reason ?? undefined,
+    createdAt: api.createdAt,
+  }
+}
+
 export interface RealPartsState {
   ready: boolean
   parts: InventoryPart[]
+  movements: InventoryMovement[]
   error: string | null
   refresh: () => Promise<void>
 }
@@ -63,6 +97,7 @@ export interface RealPartsState {
 export function useRealParts(): RealPartsState {
   const [ready, setReady] = React.useState(false)
   const [parts, setParts] = React.useState<InventoryPart[]>([])
+  const [movements, setMovements] = React.useState<InventoryMovement[]>([])
   const [error, setError] = React.useState<string | null>(null)
 
   const refresh = React.useCallback(async () => {
@@ -73,8 +108,15 @@ export function useRealParts(): RealPartsState {
 
     setError(null)
     try {
-      const list = await apiFetch<ApiPart[]>(endpoints.parts.list())
+      // Os movimentos ficam num caminho plano (/parts/movements), não aninhados
+      // sob a peça -- `endpoints.parts.movements(id)` aponta para uma rota que
+      // não existe no backend.
+      const [list, movs] = await Promise.all([
+        apiFetch<ApiPart[]>(endpoints.parts.list()),
+        apiFetch<ApiMovement[]>('/parts/movements'),
+      ])
       setParts(list.map(mapApiPart))
+      setMovements(movs.map(mapApiMovement))
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Falha ao carregar o estoque de peças.')
     } finally {
@@ -86,5 +128,5 @@ export function useRealParts(): RealPartsState {
     void refresh()
   }, [refresh])
 
-  return { ready, parts, error, refresh }
+  return { ready, parts, movements, error, refresh }
 }

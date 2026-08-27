@@ -11,6 +11,8 @@ import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { NAV_ITEMS, type NavItem } from '@/lib/constants'
 import { preventiveHealthOf } from '@/lib/status'
+import { isRemoteBackend } from '@/lib/api'
+import { useRealInventory } from '@/lib/hooks/use-real-inventory'
 import { useVellor } from '@/lib/store'
 import { cn } from '@/lib/utils'
 
@@ -211,7 +213,11 @@ function SidebarBody({
 
 export function AppSidebar() {
   const { collapsed, mobileOpen, setMobileOpen } = useSidebar()
-  const { ready, computers } = useVellor()
+  const mock = useVellor()
+  const real = useRealInventory()
+  const remote = isRemoteBackend()
+  const ready = remote ? real.ready : mock.ready
+  const computers = remote ? real.computers : mock.computers
 
   // Contagem só depois da hidratação: no servidor não há base persistida para comparar.
   const overdueCount = useMemo(() => {

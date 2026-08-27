@@ -50,6 +50,8 @@ import {
 } from '@/lib/constants'
 import { exportPartsCsv, exportPartsPdf, exportPartsXlsx } from '@/lib/export'
 import { formatCurrency, formatDate, formatNumber } from '@/lib/format'
+import { isRemoteBackend } from '@/lib/api'
+import { useRealParts } from '@/lib/hooks/use-real-parts'
 import { useVellor } from '@/lib/store'
 import {
   MOVEMENT_TYPE,
@@ -59,7 +61,17 @@ import {
 } from '@/lib/types'
 
 export function PartsView() {
-  const { ready, parts, movements, deletePart } = useVellor()
+  const mock = useVellor()
+  const real = useRealParts()
+  const remote = isRemoteBackend()
+
+  // Leitura (catalogo e razao de movimentos) ja vem do backend real. Excluir
+  // peca continua no mock porque o backend NAO expoe DELETE /parts -- o botao
+  // fica desabilitado no modo remoto em vez de fingir que funcionou.
+  const { deletePart } = mock
+  const ready = remote ? real.ready : mock.ready
+  const parts = remote ? real.parts : mock.parts
+  const movements = remote ? real.movements : mock.movements
 
   const [partFormOpen, setPartFormOpen] = React.useState(false)
   const [movementOpen, setMovementOpen] = React.useState(false)
@@ -216,6 +228,12 @@ export function PartsView() {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className="text-danger"
+                    disabled={remote}
+                    title={
+                      remote
+                        ? 'Exclusão de peça ainda não existe na API — só é possível pelo banco.'
+                        : undefined
+                    }
                     onClick={() => {
                       setPartToDelete(part)
                       setDeleteConfirmOpen(true)

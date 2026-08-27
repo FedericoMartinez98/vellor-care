@@ -36,6 +36,8 @@ import {
   MAINTENANCE_TYPE_LABELS,
 } from '@/lib/constants'
 import { formatCurrency, formatDateTime, formatDuration, formatNumber } from '@/lib/format'
+import { isRemoteBackend } from '@/lib/api'
+import { useRealInventory } from '@/lib/hooks/use-real-inventory'
 import { useVellor } from '@/lib/store'
 import { checklistCompletion, effectiveMaintenanceStatus } from '@/lib/status'
 import type {
@@ -117,6 +119,8 @@ function MaintenanceDetailDialog({
   onOpenChange,
 }: MaintenanceDetailDialogProps) {
   const vellor = useVellor()
+  const realInv = useRealInventory()
+  const remote = isRemoteBackend()
 
   const grouped = React.useMemo(() => {
     const checklist = maintenance?.checklist ?? []
@@ -147,7 +151,12 @@ function MaintenanceDetailDialog({
       label: 'Computador',
       value: `${maintenance.assetTag} · ${maintenance.hostname}`,
     },
-    { label: 'Setor', value: vellor.getSectorName(maintenance.sectorId) },
+    {
+      label: 'Setor',
+      value: remote
+        ? (realInv.sectors.find((s) => s.id === maintenance.sectorId)?.name ?? '—')
+        : vellor.getSectorName(maintenance.sectorId),
+    },
     {
       label: 'Agendada para',
       value: <span className="tabular">{formatDateTime(maintenance.scheduledFor)}</span>,

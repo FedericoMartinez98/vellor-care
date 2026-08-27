@@ -47,6 +47,8 @@ import {
   exportPartsXlsx,
 } from '@/lib/export'
 import { formatCurrency, formatDate, formatNumber } from '@/lib/format'
+import { isRemoteBackend } from '@/lib/api'
+import { useRealDatabase } from '@/lib/hooks/use-real-database'
 import { useVellor } from '@/lib/store'
 import { cn } from '@/lib/utils'
 
@@ -98,7 +100,18 @@ const REPORT_CATALOG: ReportMeta[] = [
 ]
 
 export function ReportsView() {
-  const { ready, computers, sectors, maintenances, parts, technicians } = useVellor()
+  const mock = useVellor()
+  const real = useRealDatabase()
+  const remote = isRemoteBackend()
+
+  const ready = remote ? real.ready : mock.ready
+  const computers = remote ? real.db.computers : mock.computers
+  const sectors = remote ? real.db.sectors : mock.sectors
+  const maintenances = remote ? real.db.maintenances : mock.maintenances
+  const parts = remote ? real.db.parts : mock.parts
+  const technicians = remote
+    ? real.db.users.filter((u) => u.role === 'TECNICO' || u.role === 'ADMINISTRADOR')
+    : mock.technicians
 
   const [selectedReport, setSelectedReport] = React.useState<ReportType>('PREVENTIVAS_PERIODO')
   const [fromDate, setFromDate] = React.useState<string>(
@@ -112,7 +125,11 @@ export function ReportsView() {
   // Filtra dados conforme seleção
   const filteredMaintenances = React.useMemo(() => {
     return maintenances.filter((m) => {
-      const dt = m.finishedAt ?? m.scheduledFor
+      // `finishedAt` é timestamp completo ("2026-08-27T13:03:59Z") e os
+      // filtros são data pura ("2026-08-27"). Comparado como texto,
+      // "2026-08-27T13:03:59Z" > "2026-08-27" -- então tudo que foi concluído
+      // NO último dia do período era descartado do relatório. Compara só a data.
+      const dt = (m.finishedAt ?? m.scheduledFor).slice(0, 10)
       if (dt < fromDate || dt > toDate) return false
       if (sectorFilter !== 'ALL' && m.sectorId !== sectorFilter) return false
       if (technicianFilter !== 'ALL' && m.technicianId !== technicianFilter) return false
